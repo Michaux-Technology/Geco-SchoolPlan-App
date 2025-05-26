@@ -1,0 +1,1456 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const http = require('http');
+const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
+const authRoutes = require('./routes/auth');
+const Planning = require('./models/Planning');
+const Uhr = require('./models/Uhr');
+const Surveillance = require('./models/Surveillance');
+const Enseignant = require('./models/Enseignant');
+const Matiere = require('./models/Matiere');
+const Classe = require('./models/Classe');
+const Salle = require('./models/Salle');
+const Cours = require('./models/Cours');
+const Annotation = require('./models/Annotation');
+require('dotenv').config();
+
+// Configuration
+const JWT_SECRET = process.env.JWT_SECRET;
+const MAX_LOGIN_ATTEMPTS = 10;
+const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes en millisecondes
+
+// Liste des utilisateurs par défaut
+const defaultUsers = [
+  {
+    username: 'enseignant',
+    password: '1234',
+    role: 'enseignant'
+  },
+  {
+    username: 'eleve',
+    password: '1234',
+    role: 'eleve'
+  }
+];
+
+// Stockage des tentatives de connexion
+const loginAttempts = new Map();
+
+// Stockage des connexions WebSocket par enseignant
+const teacherConnections = new Map();
+
+// Middleware de vérification des tentatives de connexion
+const checkLoginAttempts = (req, res, next) => {
+  const ip = req.ip;
+  const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+  if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
+    const timeSinceLastAttempt = Date.now() - attempts.lastAttempt;
+    if (timeSinceLastAttempt < BLOCK_DURATION) {
+      const remainingTime = Math.ceil((BLOCK_DURATION - timeSinceLastAttempt) / 1000 / 60);
+      return res.status(429).json({
+        message: `Trop de tentatives de connexion. Veuillez réessayer dans ${remainingTime} minutes.`
+      });
+    } else {
+      loginAttempts.delete(ip);
+    }
+  }
+  next();
+};
+
+// Fonction pour émettre les mises à jour du planning
+const emitPlanningUpdate = (enseignantId, planning) => {
+  // Envoyer à tous les clients connectés
+  io.emit('planningUpdate', {
+    planning: planning,
+    zeitslots: zeitslots,
+    surveillances: surveillances
+  });
+};
+
+// Fonction pour obtenir le numéro de la semaine
+function getWeekNumber(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+}
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Initialiser les données
+let planning = [];
+let surveillances = [];
+let zeitslots = [];
+let enseignants = [];
+let cours = [];
+let classes = [];
+let matieres = [];
+let salles = [];
+let uhrs = [];
+
+// Fonction pour charger les données
+async function loadData() {
+  try {
+    planning = await Planning.find();
+    surveillances = await Surveillance.find();
+    zeitslots = await Uhr.find();
+    enseignants = await Enseignant.find();
+    cours = await Cours.find();
+    classes = await Classe.find();
+    matieres = await Matiere.find();
+    salles = await Salle.find();
+    uhrs = await Uhr.find();
+
+    console.log('Données chargées:');
+    console.log('- Planning:', planning.length);
+    console.log('- Surveillances:', surveillances.length);
+    console.log('- Zeitslots:', zeitslots.length);
+    console.log('- Enseignants:', enseignants.length);
+    console.log('- Cours:', cours.length);
+    console.log('- Classes:', classes.length);
+    console.log('- Matières:', matieres.length);
+    console.log('- Salles:', salles.length);
+    console.log('- Heures:', uhrs.length);
+  } catch (error) {
+    console.error('Erreur lors du chargement des données:', error);
+  }
+}
+
+// Charger les données au démarrage
+loadData();
+
+// Fonction pour initialiser les créneaux horaires
+async function initializeUhr() {
+  try {
+    const count = await Uhr.countDocuments();
+    console.log('Vérification de la collection Uhr:', count);
+    
+    if (count === 0) {
+      console.log('Initialisation des créneaux horaires...');
+      const zeitslots = [
+        { nummer: 1, zeitslot: '7:40 - 8:25' },
+        { nummer: 2, zeitslot: '8:35 - 9:20' },
+        { nummer: 3, zeitslot: '9:30 - 10:15' },
+        { nummer: 4, zeitslot: '10:40 - 11:25' },
+        { nummer: 5, zeitslot: '11:35 - 12:20' },
+        { nummer: 6, zeitslot: '12:30 - 13:15' },
+        { nummer: 7, zeitslot: '13:45 - 14:20' },
+        { nummer: 8, zeitslot: '14:35 - 15:20' }
+      ];
+      
+      const result = await Uhr.insertMany(zeitslots);
+      console.log('✅ Créneaux horaires initialisés avec succès:', result);
+    } else {
+      console.log('ℹ️ Les créneaux horaires existent déjà');
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation des créneaux horaires:', error);
+  }
+}
+
+// Connexion à MongoDB avec gestion des erreurs améliorée
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Connecté à MongoDB');
+
+    // Initialiser les tranches horaires si la collection est vide
+    await Uhr.initializeUhrs();
+    
+    // Charger les données
+    await loadData();
+  } catch (error) {
+    console.error('Erreur de connexion à MongoDB:', error);
+    process.exit(1);
+  }
+};
+
+// Appeler la connexion
+connectDB();
+
+// Gestion des événements de déconnexion
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ Déconnecté de MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Erreur MongoDB:', err);
+});
+
+// Routes
+app.use('/api/auth', authRoutes);
+
+// Routes pour les matières
+app.get('/api/matieres', async (req, res) => {
+  try {
+    const matieres = await Matiere.find().sort({ nom: 1 });
+    res.json(matieres);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/matieres', async (req, res) => {
+  try {
+    const matiere = new Matiere(req.body);
+    const newMatiere = await matiere.save();
+    res.status(201).json(newMatiere);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.put('/api/matieres/:id', async (req, res) => {
+  try {
+    const matiere = await Matiere.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(matiere);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete('/api/matieres/:id', async (req, res) => {
+  try {
+    await Matiere.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Matière supprimée' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Routes pour les classes
+app.get('/api/classes', async (req, res) => {
+  try {
+    const classes = await Classe.find().sort({ niveau: 1, nom: 1 });
+    res.json(classes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/classes', async (req, res) => {
+  try {
+    const classe = new Classe(req.body);
+    const newClasse = await classe.save();
+    res.status(201).json(newClasse);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.put('/api/classes/:id', async (req, res) => {
+  try {
+    const classe = await Classe.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(classe);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete('/api/classes/:id', async (req, res) => {
+  try {
+    await Classe.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Classe supprimée' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Routes pour les salles
+app.get('/api/salles', async (req, res) => {
+  try {
+    const salles = await Salle.find().sort({ nom: 1 });
+    res.json(salles);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/salles', async (req, res) => {
+  try {
+    const salle = new Salle(req.body);
+    const newSalle = await salle.save();
+    res.status(201).json(newSalle);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.put('/api/salles/:id', async (req, res) => {
+  try {
+    const salle = await Salle.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(salle);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete('/api/salles/:id', async (req, res) => {
+  try {
+    await Salle.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Salle supprimée' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Routes pour les cours
+app.get('/api/cours', async (req, res) => {
+  try {
+    const cours = await Cours.find().sort({ jour: 1, heure: 1 });
+    res.json(cours);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/cours', async (req, res) => {
+  try {
+    const coursData = req.body;
+    const newCours = await Cours.create(coursData);
+    res.status(201).json(newCours);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/cours/:id', async (req, res) => {
+  try {
+    const coursData = req.body;
+    const updatedCours = await Cours.findByIdAndUpdate(req.params.id, coursData, { new: true });
+    io.emit('planningUpdate', { planning: await Cours.find() });
+    res.json(updatedCours);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/cours/:id/annuler', async (req, res) => {
+  try {
+    const updatedCours = await Cours.findByIdAndUpdate(
+      req.params.id,
+      { annule: true, remplace: false },
+      { new: true }
+    );
+    io.emit('planningUpdate', { planning: await Cours.find() });
+    res.json(updatedCours);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/cours/:id/remplacer', async (req, res) => {
+  try {
+    const { enseignant, matiere, salle } = req.body;
+    const updatedCours = await Cours.findByIdAndUpdate(
+      req.params.id,
+      { 
+        enseignant: enseignant || undefined,
+        matiere: matiere || undefined,
+        salle: salle || undefined,
+        remplace: true,
+        annule: false
+      },
+      { new: true }
+    );
+    io.emit('planningUpdate', { planning: await Cours.find() });
+    res.json(updatedCours);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/cours/:id', async (req, res) => {
+  try {
+    const cours = await Cours.findByIdAndDelete(req.params.id);
+    if (!cours) {
+      return res.status(404).json({ message: 'Cours non trouvé' });
+    }
+    io.emit('planningUpdate', { planning: await Cours.find().sort({ jour: 1, heure: 1 }) });
+    res.json({ message: 'Cours supprimé' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Modifier la route pour les statistiques des enseignants
+app.get('/api/stats/enseignants', async (req, res) => {
+  try {
+    const stats = await Cours.aggregate([
+      { $unwind: '$enseignantsIds' },
+      { $group: { 
+        _id: '$enseignantsIds',
+        count: { $sum: 1 }
+      }},
+      { $lookup: {
+        from: 'enseignants',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'enseignant'
+      }},
+      { $unwind: '$enseignant' },
+      { $project: {
+        nom: '$enseignant.nom',
+        count: 1
+      }}
+    ]);
+    
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Gestion des mises à jour en temps réel avec Socket.IO
+io.on('connection', (socket) => {
+  console.log('Nouvelle connexion Socket.IO');
+
+  // Gestion des abonnements des enseignants
+  socket.on('subscribe', (data) => {
+    if (data.enseignantId) {
+      teacherConnections.set(data.enseignantId, socket);
+      console.log(`Enseignant ${data.enseignantId} abonné aux mises à jour`);
+      
+      // Envoyer les données initiales
+      socket.emit('planningUpdate', { planning, surveillances, zeitslots });
+      socket.emit('enseignantsUpdate', enseignants);
+      socket.emit('coursUpdate', cours);
+      socket.emit('classesUpdate', classes);
+      socket.emit('matieresUpdate', matieres);
+      socket.emit('sallesUpdate', salles);
+      socket.emit('uhrsUpdate', uhrs);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    // Supprimer la connexion de tous les enseignants
+    for (const [enseignantId, connection] of teacherConnections.entries()) {
+      if (connection === socket) {
+        teacherConnections.delete(enseignantId);
+        console.log(`Connexion Socket.IO fermée pour l'enseignant ${enseignantId}`);
+      }
+    }
+  });
+
+  // Gestion des erreurs de connexion
+  socket.on('connect_error', (error) => {
+    console.error('Erreur de connexion Socket.IO:', error);
+    socket.emit('error', 'Erreur de connexion au serveur');
+  });
+
+  // Gérer la mise à jour d'un créneau
+  socket.on('updateSlot', async (updatedSlot) => {
+    try {
+      const result = await Planning.findByIdAndUpdate(
+        updatedSlot._id,
+        updatedSlot,
+        { new: true }
+      );
+      io.emit('planningUpdate', { planning: await Planning.find({}) });
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gérer la suppression d'un créneau
+  socket.on('deleteSlot', async (slotId) => {
+    try {
+      const deleted = await Planning.findByIdAndDelete(slotId);
+      io.emit('planningUpdate', { planning: await Planning.find({}) });
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gérer l'ajout d'une nouvelle tranche horaire
+  socket.on('addTimeSlot', async (newTimeSlot) => {
+    try {
+      const existingSlot = await Uhr.findOne({ nummer: newTimeSlot.nummer });
+      if (existingSlot) {
+        socket.emit('error', 'Numéro déjà existant');
+        return;
+      }
+
+      const uhrData = {
+        nummer: newTimeSlot.nummer,
+        start: newTimeSlot.start,
+        ende: newTimeSlot.ende
+      };
+
+      const createdUhr = await Uhr.create(uhrData);
+      zeitslots = await Uhr.find({});
+      io.emit('uhrsUpdate', zeitslots);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gérer l'ajout d'un nouveau cours
+  socket.on('addCours', async (coursData) => {
+    try {
+      console.log('Données reçues pour l\'ajout d\'un cours:', coursData);
+      
+      // Récupérer les informations des enseignants
+      const enseignants = await Promise.all(
+        coursData.enseignants.map(async (nom) => {
+          const enseignant = await Enseignant.findOne({ nom });
+          if (!enseignant) {
+            throw new Error(`Enseignant non trouvé: ${nom}`);
+          }
+          return {
+            nom: enseignant.nom,
+            id: enseignant._id
+          };
+        })
+      );
+
+      const newCours = await Cours.create({
+        classe: coursData.classe,
+        enseignants,
+        matiere: coursData.matiere,
+        salle: coursData.salle,
+        jour: coursData.jour,
+        heure: coursData.heure,
+        uhr: coursData.uhr,
+        semaine: coursData.semaine,
+        annee: coursData.annee || new Date().getFullYear()
+      });
+
+      console.log('Nouveau cours créé:', newCours);
+      const cours = await Cours.find({});
+      io.emit('planningUpdate', { planning: cours });
+      io.emit('coursUpdate', cours);
+      
+      // Envoyer une confirmation de succès
+      socket.emit('success', 'Cours ajouté avec succès');
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du cours:', error);
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gérer la copie et le collage d'une semaine
+  socket.on('pasteWeek', async (data) => {
+    try {
+      console.log('Demande de copie de semaine reçue:', data);
+      const { courses, targetWeek, targetYear, sourceWeek, sourceYear } = data;
+      
+      if (!courses || !Array.isArray(courses) || courses.length === 0) {
+        socket.emit('pasteWeekError', 'Aucun cours à copier');
+        return;
+      }
+      
+      // Vérifier si nous essayons de coller dans la même semaine
+      if (sourceWeek === targetWeek && sourceYear === targetYear) {
+        socket.emit('pasteWeekError', 'Impossible de coller dans la même semaine');
+        return;
+      }
+      
+      // Ajouter les nouveaux cours
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const coursData of courses) {
+        try {
+          // S'assurer que les champs obligatoires sont présents
+          if (!coursData.classe || !coursData.enseignants || !coursData.matiere || 
+              !coursData.salle || !coursData.jour || !coursData.heure || !coursData.uhr) {
+            console.error('Données de cours invalides:', coursData);
+            errorCount++;
+            continue;
+          }
+          
+          await Cours.create({
+            classe: coursData.classe,
+            enseignants: coursData.enseignants,
+            matiere: coursData.matiere,
+            salle: coursData.salle,
+            jour: coursData.jour,
+            heure: coursData.heure,
+            uhr: coursData.uhr,
+            semaine: targetWeek,
+            annee: targetYear,
+            annule: coursData.annule || false,
+            remplace: coursData.remplace || false,
+            remplacementInfo: coursData.remplacementInfo || ''
+          });
+          
+          successCount++;
+        } catch (error) {
+          console.error('Erreur lors de la création d\'un cours:', error);
+          errorCount++;
+        }
+      }
+      
+      // Actualiser les cours après l'ajout
+      cours = await Cours.find({});
+      io.emit('planningUpdate', { planning: cours });
+      io.emit('coursUpdate', cours);
+      
+      // Envoyer une réponse
+      if (errorCount === 0) {
+        socket.emit('pasteWeekSuccess', { 
+          message: `${successCount} cours copiés avec succès`,
+          copied: successCount
+        });
+      } else {
+        socket.emit('pasteWeekSuccess', { 
+          message: `${successCount} cours copiés avec succès, ${errorCount} erreurs`,
+          copied: successCount,
+          errors: errorCount
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la copie de la semaine:', error);
+      socket.emit('pasteWeekError', error.message);
+    }
+  });
+
+  // Gestion de la suppression d'une tranche horaire
+  socket.on('deleteTimeSlot', async (timeSlotId) => {
+    try {
+      await Uhr.findByIdAndDelete(timeSlotId);
+      zeitslots = await Uhr.find({});
+      io.emit('uhrsUpdate', zeitslots);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gestion des surveillances
+  socket.on('addSurveillance', async (surveillanceData) => {
+    try {
+      console.log('Données reçues pour l\'ajout de surveillance:', JSON.stringify(surveillanceData, null, 2));
+      
+      // Vérifier que toutes les données requises sont présentes
+      if (!surveillanceData.annee) {
+        console.error('L\'année est manquante dans les données reçues');
+        throw new Error('L\'année est requise pour la surveillance');
+      }
+
+      // Vérifier que uhr est présent
+      if (!surveillanceData.uhr) {
+        console.error('Le créneau horaire est manquant dans les données reçues');
+        throw new Error('Le créneau horaire est requis pour la surveillance');
+      }
+
+      // Vérifier que enseignant est présent
+      if (!surveillanceData.enseignant) {
+        console.error('L\'enseignant est manquant dans les données reçues');
+        throw new Error('L\'enseignant est requis pour la surveillance');
+      }
+
+      console.log('Tentative de création de la surveillance...');
+      const newSurveillance = await Surveillance.create(surveillanceData);
+      console.log('Nouvelle surveillance créée:', JSON.stringify(newSurveillance, null, 2));
+      
+      console.log('Récupération de la liste mise à jour des surveillances...');
+      surveillances = await Surveillance.find({});
+      console.log('Liste mise à jour des surveillances:', JSON.stringify(surveillances, null, 2));
+      
+      console.log('Envoi de la mise à jour aux clients...');
+      io.emit('planningUpdate', { surveillances });
+      socket.emit('surveillanceAdded', newSurveillance);
+      console.log('Mise à jour envoyée avec succès');
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de la surveillance:', error);
+      socket.emit('surveillanceError', error.message);
+    }
+  });
+
+  socket.on('updateSurveillance', async (surveillanceData) => {
+    try {
+      await Surveillance.findByIdAndUpdate(
+        surveillanceData._id,
+        surveillanceData,
+        { new: true }
+      );
+      surveillances = await Surveillance.find({});
+      io.emit('planningUpdate', { surveillances });
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('deleteSurveillance', async (surveillanceId) => {
+    try {
+      await Surveillance.findByIdAndDelete(surveillanceId);
+      surveillances = await Surveillance.find({});
+      io.emit('planningUpdate', { surveillances });
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gestion des enseignants
+  socket.on('getEnseignants', async () => {
+    try {
+      enseignants = await Enseignant.find({});
+      socket.emit('enseignantsUpdate', enseignants);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('addEnseignant', async (enseignantData) => {
+    try {
+      const enseignant = await Enseignant.create(enseignantData);
+      enseignants = await Enseignant.find({});
+      io.emit('enseignantsUpdate', enseignants);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('updateEnseignant', async (enseignantData) => {
+    try {
+      await Enseignant.findByIdAndUpdate(
+        enseignantData._id,
+        enseignantData,
+        { new: true }
+      );
+      enseignants = await Enseignant.find({});
+      io.emit('enseignantsUpdate', enseignants);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('deleteEnseignant', async (enseignantId) => {
+    try {
+      await Enseignant.findByIdAndDelete(enseignantId);
+      enseignants = await Enseignant.find({});
+      io.emit('enseignantsUpdate', enseignants);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Socket.IO events pour les matières
+  socket.on('getMatieres', async () => {
+    try {
+      matieres = await Matiere.find({});
+      socket.emit('matieresUpdate', matieres);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('addMatiere', async (matiereData) => {
+    try {
+      const matiere = await Matiere.create(matiereData);
+      matieres = await Matiere.find({});
+      io.emit('matieresUpdate', matieres);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('updateMatiere', async (matiereData) => {
+    try {
+      await Matiere.findByIdAndUpdate(matiereData._id, matiereData);
+      const matieres = await Matiere.find({});
+      io.emit('matieresUpdate', matieres);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('deleteMatiere', async (id) => {
+    try {
+      await Matiere.findByIdAndDelete(id);
+      const matieres = await Matiere.find({});
+      io.emit('matieresUpdate', matieres);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Socket.IO events pour les classes
+  socket.on('getClasses', async () => {
+    try {
+      classes = await Classe.find({});
+      socket.emit('classesUpdate', classes);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('addClasse', async (classeData) => {
+    try {
+      const classe = await Classe.create(classeData);
+      classes = await Classe.find({});
+      io.emit('classesUpdate', classes);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('updateClasse', async (classeData) => {
+    try {
+      await Classe.findByIdAndUpdate(classeData._id, classeData);
+      const classes = await Classe.find({});
+      io.emit('classesUpdate', classes);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('deleteClasse', async (id) => {
+    try {
+      await Classe.findByIdAndDelete(id);
+      const classes = await Classe.find({});
+      io.emit('classesUpdate', classes);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Socket.IO events pour les salles
+  socket.on('getSalles', async () => {
+    try {
+      salles = await Salle.find({});
+      socket.emit('sallesUpdate', salles);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('addSalle', async (salleData) => {
+    try {
+      const salle = await Salle.create(salleData);
+      salles = await Salle.find({});
+      io.emit('sallesUpdate', salles);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('updateSalle', async (salleData) => {
+    try {
+      await Salle.findByIdAndUpdate(salleData._id, salleData);
+      const salles = await Salle.find({});
+      io.emit('sallesUpdate', salles);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('deleteSalle', async (id) => {
+    try {
+      await Salle.findByIdAndDelete(id);
+      const salles = await Salle.find({});
+      io.emit('sallesUpdate', salles);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gestionnaire pour obtenir les cours
+  socket.on('getCours', async () => {
+    try {
+      cours = await Cours.find({});
+      socket.emit('coursUpdate', cours);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('updateCours', async (coursData) => {
+    try {
+      console.log('Mise à jour du cours reçue:', coursData);
+      
+      // Vérifier que l'ID du cours est valide
+      if (!coursData._id) {
+        throw new Error('ID de cours invalide');
+      }
+      
+      // Trouver le cours existant
+      const existingCours = await Cours.findById(coursData._id);
+      if (!existingCours) {
+        throw new Error('Cours non trouvé');
+      }
+      
+      // Mettre à jour le cours avec les nouvelles données
+      Object.keys(coursData).forEach(key => {
+        if (key !== '_id') {
+          existingCours[key] = coursData[key];
+        }
+      });
+      
+      // Sauvegarder les modifications
+      await existingCours.save();
+      
+      console.log('Cours mis à jour avec succès:', existingCours);
+      
+      // Émettre les données mises à jour
+      const cours = await Cours.find();
+      io.emit('planningUpdate', { planning: cours });
+      io.emit('coursUpdate', cours);
+      
+      socket.emit('success', 'Cours mis à jour avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du cours:', error);
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('deleteCours', async (id) => {
+    try {
+      const cours = await Cours.findByIdAndDelete(id);
+      if (!cours) {
+        socket.emit('error', 'Cours non trouvé');
+        return;
+      }
+      const coursList = await Cours.find({});
+      io.emit('planningUpdate', { planning: coursList });
+      io.emit('coursUpdate', coursList);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gestionnaire pour obtenir les heures
+  socket.on('getUhrs', async () => {
+    try {
+      zeitslots = await Uhr.find({});
+      socket.emit('uhrsUpdate', zeitslots);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('addUhr', async (uhrData) => {
+    try {
+      await Uhr.create(uhrData);
+      zeitslots = await Uhr.find({});
+      io.emit('uhrsUpdate', zeitslots);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('updateUhr', async (uhrData) => {
+    try {
+      await Uhr.findByIdAndUpdate(uhrData._id, uhrData, { new: true });
+      zeitslots = await Uhr.find({});
+      io.emit('uhrsUpdate', zeitslots);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('deleteUhr', async (uhrId) => {
+    try {
+      await Uhr.findByIdAndDelete(uhrId);
+      zeitslots = await Uhr.find({});
+      io.emit('uhrsUpdate', zeitslots);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gérer l'annulation d'un cours
+  socket.on('cancelCours', async (coursId) => {
+    try {
+      await Cours.findByIdAndDelete(coursId);
+      const cours = await Cours.find({});
+      io.emit('planningUpdate', { planning: cours });
+      io.emit('coursUpdate', cours);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gérer le remplacement d'un cours
+  socket.on('replaceCours', async (coursData) => {
+    try {
+      await Cours.findByIdAndUpdate(coursData._id, coursData, { new: true });
+      const cours = await Cours.find({});
+      io.emit('planningUpdate', { planning: cours });
+      io.emit('coursUpdate', cours);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Routes pour les annotations
+  socket.on('saveAnnotation', async (data) => {
+    try {
+      const { jour, annotation, semaine, date } = data;
+      
+      // Normaliser le format du jour
+      const normalizedJour = jour.charAt(0).toUpperCase() + jour.slice(1).toLowerCase();
+      
+      // Rechercher une annotation existante pour ce jour et cette date
+      let existingAnnotation = await Annotation.findOne({ 
+        jour: normalizedJour, 
+        date: new Date(date)
+      });
+
+      if (existingAnnotation) {
+        // Mettre à jour l'annotation existante
+        existingAnnotation.annotation = annotation;
+        await existingAnnotation.save();
+      } else {
+        // Créer une nouvelle annotation
+        existingAnnotation = await Annotation.create({ 
+          jour: normalizedJour, 
+          annotation, 
+          semaine,
+          date: new Date(date)
+        });
+      }
+      
+      // Récupérer toutes les annotations pour la semaine actuelle
+      const startOfWeek = new Date(date);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Début de la semaine (Lundi)
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(endOfWeek.getDate() + 4); // Fin de la semaine (Vendredi)
+
+      const annotations = await Annotation.find({
+        date: {
+          $gte: startOfWeek,
+          $lte: endOfWeek
+        }
+      });
+      
+      const annotationsMap = {};
+      annotations.forEach(ann => {
+        annotationsMap[ann.jour] = ann.annotation;
+      });
+      
+      // Envoyer les annotations mises à jour à tous les clients
+      io.emit('annotationsUpdate', annotationsMap);
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde de l\'annotation:', error);
+      socket.emit('annotationError', error.message);
+    }
+  });
+
+  socket.on('getAnnotations', async (data) => {
+    try {
+      console.log('Données reçues:', data);
+      
+      // Vérifier que les données sont valides
+      if (!data || typeof data.semaine === 'undefined' || typeof data.annee === 'undefined') {
+        console.error('Données invalides:', data);
+        throw new Error('Données invalides pour la recherche d\'annotations');
+      }
+
+      const semaine = Number(data.semaine);
+      const annee = Number(data.annee);
+      
+      console.log('Recherche d\'annotations pour la semaine', semaine, 'et l\'année', annee);
+
+      const annotations = await Annotation.find({
+        semaine: semaine,
+        annee: annee
+      });
+      
+      console.log('Annotations trouvées:', annotations);
+      
+      const annotationsMap = {};
+      annotations.forEach(ann => {
+        annotationsMap[ann.jour] = ann.annotation;
+      });
+      
+      socket.emit('annotationsUpdate', annotationsMap);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des annotations:', error);
+      socket.emit('annotationError', error.message);
+    }
+  });
+});
+
+// Routes de base
+app.get('/', (req, res) => {
+  res.json({ message: 'Bienvenue sur l\'API Geco-SchoolPlan' });
+});
+
+// Route pour mettre à jour le planning avec émission WebSocket
+app.put('/api/planning/:id', async (req, res) => {
+  try {
+    const updatedPlanning = await Planning.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    
+    // Émettre la mise à jour via WebSocket
+    emitPlanningUpdate(updatedPlanning.enseignant, updatedPlanning);
+    
+    res.json(updatedPlanning);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Routes pour l'API mobile
+app.post('/api/mobile/login', checkLoginAttempts, (req, res) => {
+  const { username, password } = req.body;
+
+  // Vérifier si l'utilisateur existe
+  const user = defaultUsers.find(u => u.username === username);
+  
+  if (!user) {
+    // Incrémenter le compteur de tentatives
+    const ip = req.ip;
+    const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+    attempts.count += 1;
+    attempts.lastAttempt = Date.now();
+    loginAttempts.set(ip, attempts);
+    
+    return res.status(401).json({ message: 'Identifiants invalides' });
+  }
+
+  // Vérifier le mot de passe
+  if (user.password !== password) {
+    // Incrémenter le compteur de tentatives
+    const ip = req.ip;
+    const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+    attempts.count += 1;
+    attempts.lastAttempt = Date.now();
+    loginAttempts.set(ip, attempts);
+    
+    return res.status(401).json({ message: 'Identifiants invalides' });
+  }
+
+  // Réinitialiser les tentatives de connexion
+  loginAttempts.delete(req.ip);
+
+  // Générer le token JWT
+  const tokenPayload = {
+    username: user.username,
+    role: user.role,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 heures
+  };
+
+  // Générer le refresh token (valide 7 jours)
+  const refreshTokenPayload = {
+    username: user.username,
+    role: user.role,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 jours
+  };
+
+  try {
+    const token = jwt.sign(tokenPayload, JWT_SECRET);
+    const refreshToken = jwt.sign(refreshTokenPayload, JWT_SECRET);
+    
+    res.json({ 
+      token, 
+      refreshToken,
+      user: { 
+        username: user.username, 
+        role: user.role 
+      } 
+    });
+  } catch (error) {
+    console.error('Erreur lors de la génération du token:', error);
+    res.status(500).json({ message: 'Erreur lors de la génération du token' });
+  }
+});
+
+app.get('/api/mobile/status', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/mobile/enseignant', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token manquant ou invalide' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    console.log('Vérification du token...');
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('Token valide, recherche des enseignants...');
+    
+    const enseignants = await Enseignant.find({})
+      .select('nom prenom matiere email telephone')
+      .sort({ nom: 1, prenom: 1 });
+    
+    console.log(`Nombre d'enseignants trouvés: ${enseignants.length}`);
+    res.json(enseignants);
+  } catch (error) {
+    console.error('Erreur détaillée lors de la récupération des enseignants:', error);
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ message: 'Token invalide' });
+    } else if (error.name === 'TokenExpiredError') {
+      res.status(401).json({ message: 'Token expiré' });
+    } else {
+      console.error('Erreur MongoDB:', error);
+      res.status(500).json({ message: 'Erreur serveur lors de la récupération des enseignants' });
+    }
+  }
+});
+
+app.get('/api/mobile/classe', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token manquant ou invalide' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const classes = await Classe.find({})
+      .select('nom niveau')
+      .sort({ nom: 1 });
+    
+    res.json(classes);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des classes:', error);
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ message: 'Token invalide' });
+    } else {
+      res.status(500).json({ message: 'Erreur serveur lors de la récupération des classes' });
+    }
+  }
+});
+
+app.get('/api/mobile/salle', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token manquant ou invalide' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const salles = await Salle.find({})
+      .select('nom type capacite')
+      .sort({ nom: 1 });
+    
+    res.json(salles);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des salles:', error);
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ message: 'Token invalide' });
+    } else {
+      res.status(500).json({ message: 'Erreur serveur lors de la récupération des salles' });
+    }
+  }
+});
+
+app.get('/api/mobile/reset-attempts', (req, res) => {
+  const ip = req.ip;
+  loginAttempts.delete(ip);
+  res.json({ message: 'Tentatives réinitialisées' });
+});
+
+app.get('/api/mobile/cours/enseignant/:id', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token manquant ou invalide' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const enseignantId = req.params.id;
+    const weekOffset = parseInt(req.query.weekOffset) || 0;
+
+    const enseignant = await Enseignant.findById(enseignantId);
+    if (!enseignant) {
+      return res.status(404).json({ message: 'Enseignant non trouvé' });
+    }
+
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + (weekOffset * 7));
+    const targetWeek = getWeekNumber(targetDate);
+    const targetYear = targetDate.getFullYear();
+
+    const cours = await Cours.find({
+      'enseignants.id': enseignantId,
+      semaine: targetWeek,
+      annee: targetYear
+    })
+    .populate('uhr', 'start ende')
+    .sort({ jour: 1, heure: 1 });
+
+    const planningData = cours.map(cours => ({
+      _id: cours._id,
+      jour: cours.jour,
+      heure: cours.heure,
+      matiere: cours.matiere,
+      classe: cours.classe,
+      salle: cours.salle,
+      annule: cours.annule || false,
+      remplace: cours.remplace || false,
+      remplacementInfo: cours.remplacementInfo,
+      semaine: targetWeek,
+      annee: targetYear
+    }));
+
+    res.json(planningData);
+  } catch (error) {
+    console.error('Erreur lors de la récupération du planning:', error);
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ message: 'Token invalide' });
+    } else {
+      res.status(500).json({ message: 'Erreur serveur lors de la récupération du planning' });
+    }
+  }
+});
+
+app.get('/api/mobile/uhrs', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token manquant ou invalide' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const uhrs = await Uhr.find()
+      .select('nummer start ende')
+      .sort({ nummer: 1 })
+      .lean();
+    
+    if (!uhrs || uhrs.length === 0) {
+      return res.status(404).json({ message: 'Aucun horaire disponible' });
+    }
+
+    const formattedUhrs = uhrs.map(uhr => ({
+      _id: uhr._id,
+      debut: uhr.start,
+      fin: uhr.ende
+    }));
+    
+    res.json(formattedUhrs);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des horaires:', error);
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ message: 'Token invalide' });
+    } else {
+      res.status(500).json({ message: 'Erreur serveur lors de la récupération des horaires' });
+    }
+  }
+});
+
+// Route pour rafraîchir le token
+app.post('/api/mobile/refresh-token', (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(401).json({ message: 'Refresh token manquant' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, JWT_SECRET);
+    
+    // Générer un nouveau token
+    const tokenPayload = {
+      username: decoded.username,
+      role: decoded.role,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 heures
+    };
+
+    const newToken = jwt.sign(tokenPayload, JWT_SECRET);
+    
+    res.json({ 
+      token: newToken,
+      user: {
+        username: decoded.username,
+        role: decoded.role
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors du rafraîchissement du token:', error);
+    if (error.name === 'TokenExpiredError') {
+      res.status(401).json({ message: 'Session expirée. Veuillez vous reconnecter.' });
+    } else {
+      res.status(401).json({ message: 'Refresh token invalide' });
+    }
+  }
+});
+
+// Gestion des erreurs globales
+app.use((err, req, res, next) => {
+  console.error('❌ Erreur serveur:', err);
+  res.status(500).json({ 
+    success: false,
+    message: 'Une erreur est survenue sur le serveur',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Port d'écoute
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+});
+
+app.post('/api/update-uhr', async (req, res) => {
+  try {
+    const { _id, nummer, zeitslot } = req.body;
+    const updatedUhr = await Uhr.findByIdAndUpdate(
+      _id,
+      { nummer, zeitslot },
+      { new: true }
+    );
+    io.emit('uhrsUpdate', await Uhr.find());
+    res.json(updatedUhr);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/surveillances', async (req, res) => {
+  try {
+    const surveillanceData = req.body;
+    if (!surveillanceData.annee) {
+      res.status(400).json({ error: 'L\'année est manquante' });
+      return;
+    }
+    if (!surveillanceData.uhr) {
+      res.status(400).json({ error: 'Le créneau horaire est manquant' });
+      return;
+    }
+    if (!surveillanceData.enseignant) {
+      res.status(400).json({ error: 'L\'enseignant est manquant' });
+      return;
+    }
+    const newSurveillance = await Surveillance.create(surveillanceData);
+    const surveillances = await Surveillance.find();
+    io.emit('surveillancesUpdate', surveillances);
+    res.status(201).json(newSurveillance);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}); 
