@@ -9,6 +9,7 @@ const TeacherPlanningScreen = ({ route }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [planning, setPlanning] = useState([]);
+  const [surveillances, setSurveillances] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(null);
   const [currentYear, setCurrentYear] = useState(null);
   const [requestedWeek, setRequestedWeek] = useState(null);
@@ -27,20 +28,14 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const days = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.'];
 
-  useEffect(() => {
-    // Initialiser la connexion Socket.IO
-    connectSocket();
-
-    // Charger les données initiales
-    loadTimeSlots();
-    
-    // Initialiser les états de la semaine avec la date actuelle
+  // Fonction pour initialiser la semaine et l'année
+  const initializeWeekAndYear = () => {
     const today = new Date();
     const initialWeek = getWeekNumber(today);
     const initialYear = today.getFullYear();
     
-    console.log('Initialisation de la semaine:', {
-      date: today,
+    console.log('🔄 Initialisation de la semaine et année:', {
+      date: today.toISOString(),
       semaine: initialWeek,
       annee: initialYear
     });
@@ -49,29 +44,53 @@ const TeacherPlanningScreen = ({ route }) => {
     setCurrentYear(initialYear);
     setRequestedWeek(initialWeek);
     setRequestedYear(initialYear);
-    
-    loadPlanning();
 
-    // Nettoyer la connexion lors du démontage du composant
+    // Vérifier après le setState
+    setTimeout(() => {
+      console.log('🔍 Vérification des valeurs après initialisation:', {
+        currentWeek,
+        currentYear,
+        requestedWeek,
+        requestedYear
+      });
+    }, 100);
+  };
+
+  useEffect(() => {
+    console.log('🚀 Montage du composant TeacherPlanningScreen');
+    initializeWeekAndYear();
+    console.log('📅 Chargement des créneaux horaires...');
+    loadTimeSlots();
+    
     return () => {
       if (socket) {
         socket.disconnect();
       }
     };
-  }, [teacher._id, school.apiUrl]);
+  }, []);
 
+  // Effet pour charger le planning quand la semaine ou l'année change
   useEffect(() => {
-    // Recharger les données lorsque forceRefresh change
-    loadTimeSlots();
-    loadPlanning();
-  }, [viewKey]);
+    console.log('📅 Changement de semaine/année détecté:', {
+      requestedWeek,
+      requestedYear,
+      currentWeek,
+      currentYear
+    });
 
-  useEffect(() => {
-    if (shouldLoadPlanning) {
+    if (requestedWeek && requestedYear) {
+      console.log('✅ Chargement du planning avec:', {
+        semaine: requestedWeek,
+        annee: requestedYear
+      });
       loadPlanning();
-      setShouldLoadPlanning(false);
+    } else {
+      console.log('❌ Impossible de charger le planning - paramètres manquants:', {
+        semaine: requestedWeek,
+        annee: requestedYear
+      });
     }
-  }, [shouldLoadPlanning]);
+  }, [requestedWeek, requestedYear]);
 
   const connectSocket = () => {
     const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
@@ -89,6 +108,7 @@ const TeacherPlanningScreen = ({ route }) => {
       console.log('Connecté au serveur Socket.IO');
       setWsConnected(true);
       setError(null);
+      
       // S'abonner aux mises à jour du planning
       newSocket.emit('subscribe', {
         enseignantId: teacher._id
@@ -99,28 +119,34 @@ const TeacherPlanningScreen = ({ route }) => {
       console.log('Mise à jour du planning reçue:', {
         hasPlanning: Boolean(data.planning),
         hasRemplacements: Boolean(data.planning?.some(cours => cours.remplacement)),
-        planningLength: data.planning?.length,
-        remplacements: data.planning?.filter(cours => cours.remplacement).map(cours => ({
-          matiere: cours.matiere,
-          enseignant: cours.remplacement?.enseignant
-        }))
+        planningLength: data.planning?.length
       });
       
       setLastUpdate(new Date());
       
       // Mettre à jour les données de planning
       if (data.planning) {
-        // Filtrer les cours pour la semaine actuelle
-        const filteredPlanning = data.planning.filter(cours => 
-          cours.semaine === currentWeek && 
-          cours.annee === currentYear
-        );
-        console.log('Planning filtré avec remplacements:', filteredPlanning.map(cours => ({
-          matiere: cours.matiere,
-          hasRemplacement: Boolean(cours.remplacement),
-          remplacement: cours.remplacement
-        })));
-        setPlanning(filteredPlanning);
+        // Extraire le tableau de cours selon la structure reçue
+        let coursArray = [];
+        if (Array.isArray(data.planning)) {
+          coursArray = data.planning;
+        } else if (data.planning.cours && Array.isArray(data.planning.cours)) {
+          coursArray = data.planning.cours;
+        }
+        
+        if (coursArray.length > 0) {
+          // Filtrer les cours pour la semaine demandée
+          const filteredPlanning = coursArray.filter(cours => 
+            cours.semaine === requestedWeek && 
+            cours.annee === requestedYear
+          );
+          console.log('Planning filtré:', {
+            semaineDemandee: requestedWeek,
+            anneeDemandee: requestedYear,
+            nombreCours: filteredPlanning.length
+          });
+          setPlanning(filteredPlanning);
+        }
       }
       
       // Mettre à jour les créneaux horaires
@@ -132,6 +158,31 @@ const TeacherPlanningScreen = ({ route }) => {
         }));
         console.log('Créneaux horaires mis à jour:', formattedTimeSlots);
         setTimeSlots(formattedTimeSlots);
+      } else if (data.uhrs) {
+        // Si les créneaux horaires sont dans data.uhrs
+        const formattedTimeSlots = data.uhrs.map(slot => ({
+          _id: slot._id,
+          debut: slot.start,
+          fin: slot.ende
+        }));
+        console.log('Créneaux horaires mis à jour (uhrs):', formattedTimeSlots);
+        setTimeSlots(formattedTimeSlots);
+      } else if (data.planning && data.planning.uhrs) {
+        // Si les créneaux horaires sont dans data.planning.uhrs
+        const formattedTimeSlots = data.planning.uhrs.map(slot => ({
+          _id: slot._id,
+          debut: slot.start,
+          fin: slot.ende
+        }));
+        console.log('Créneaux horaires mis à jour (planning.uhrs):', formattedTimeSlots);
+        setTimeSlots(formattedTimeSlots);
+      } else {
+        console.log('Aucun créneau horaire trouvé dans les données:', {
+          hasZeitslots: Boolean(data.zeitslots),
+          hasUhrs: Boolean(data.uhrs),
+          hasPlanningUhrs: Boolean(data.planning?.uhrs),
+          dataKeys: Object.keys(data)
+        });
       }
       
       // Mettre à jour les surveillances
@@ -200,7 +251,14 @@ const TeacherPlanningScreen = ({ route }) => {
       
       if (Array.isArray(data) && data.length > 0) {
         console.log('Nombre d\'horaires reçus:', data.length);
-        setTimeSlots(data);
+        // Formater les créneaux horaires pour qu'ils aient la même structure
+        const formattedTimeSlots = data.map(slot => ({
+          _id: slot._id,
+          debut: slot.start,
+          fin: slot.ende
+        }));
+        console.log('Créneaux horaires formatés:', formattedTimeSlots);
+        setTimeSlots(formattedTimeSlots);
       } else {
         console.log('Aucun horaire reçu dans les données');
         throw new Error('Aucun horaire disponible');
@@ -213,6 +271,52 @@ const TeacherPlanningScreen = ({ route }) => {
     }
   };
 
+  const loadSurveillances = async () => {
+    try {
+      if (!school?.token) {
+        throw new Error('Token d\'authentification manquant');
+      }
+
+      // Vérifier que les paramètres sont définis
+      if (!requestedWeek || !requestedYear) {
+        console.log('Paramètres manquants pour les surveillances:', {
+          semaine: requestedWeek,
+          annee: requestedYear
+        });
+        return;
+      }
+
+      const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
+      const apiUrl = `${baseUrl}/api/mobile/surveillances/enseignant/${teacher._id}?semaine=${requestedWeek}&annee=${requestedYear}`;
+
+      console.log('Chargement des surveillances depuis:', apiUrl, {
+        semaine: requestedWeek,
+        annee: requestedYear
+      });
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${school.token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Surveillances reçues:', data);
+      setSurveillances(data);
+    } catch (err) {
+      console.error('Erreur lors du chargement des surveillances:', err);
+      // On ne met pas d'erreur dans l'état pour ne pas bloquer l'affichage du planning
+    }
+  };
+
   const loadPlanning = async () => {
     try {
       setError(null);
@@ -221,12 +325,22 @@ const TeacherPlanningScreen = ({ route }) => {
         throw new Error('Token d\'authentification manquant');
       }
 
+      // Vérifier que les paramètres sont définis
+      if (!requestedWeek || !requestedYear) {
+        console.log('Paramètres manquants pour le planning:', {
+          semaine: requestedWeek,
+          annee: requestedYear
+        });
+        return;
+      }
+
       const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
       const apiUrl = `${baseUrl}/api/mobile/cours/enseignant/${teacher._id}?semaine=${requestedWeek}&annee=${requestedYear}`;
 
-      console.log('Chargement du planning depuis:', apiUrl);
-      console.log('Semaine demandée:', requestedWeek);
-      console.log('Année demandée:', requestedYear);
+      console.log('Chargement du planning depuis:', apiUrl, {
+        semaine: requestedWeek,
+        annee: requestedYear
+      });
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -266,6 +380,10 @@ const TeacherPlanningScreen = ({ route }) => {
       }
       
       setPlanning(data);
+      
+      // Charger les surveillances après le planning
+      await loadSurveillances();
+      
     } catch (err) {
       console.error('Erreur lors du chargement du planning:', err);
       setError(err.message || 'Erreur lors du chargement du planning');
@@ -276,22 +394,33 @@ const TeacherPlanningScreen = ({ route }) => {
   };
 
   const getWeekNumber = (date) => {
-    // Créer une copie de la date pour ne pas modifier l'original
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    // Définir le jour de la semaine (0 = dimanche, 1 = lundi, etc.)
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    // Obtenir le premier jour de l'année
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    // Calculer le numéro de semaine
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    
-    console.log('Calcul de la semaine:', {
-      date: d,
-      yearStart: yearStart,
-      weekNo: weekNo
-    });
-    
-    return weekNo;
+    try {
+      // Créer une copie de la date pour ne pas modifier l'original
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      // Définir le jour de la semaine (0 = dimanche, 1 = lundi, etc.)
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      // Obtenir le premier jour de l'année
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      // Calculer le numéro de semaine
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      
+      console.log('📅 Calcul de la semaine:', {
+        date: d.toISOString(),
+        yearStart: yearStart.toISOString(),
+        weekNo: weekNo
+      });
+
+      // S'assurer que le numéro de semaine est valide
+      if (isNaN(weekNo) || weekNo < 1 || weekNo > 53) {
+        console.error('❌ Numéro de semaine invalide:', weekNo);
+        return 1; // Retourner la première semaine par défaut
+      }
+      
+      return weekNo;
+    } catch (error) {
+      console.error('❌ Erreur lors du calcul de la semaine:', error);
+      return 1; // Retourner la première semaine en cas d'erreur
+    }
   };
 
   const onRefresh = React.useCallback(() => {
@@ -310,9 +439,45 @@ const TeacherPlanningScreen = ({ route }) => {
     };
     
     const jourComplet = joursComplets[day];
-    return planning.filter(cours => 
+    
+    // Extraire le tableau de cours de l'objet planning
+    let coursArray = [];
+    if (Array.isArray(planning)) {
+      coursArray = planning;
+    } else if (planning && planning.cours && Array.isArray(planning.cours)) {
+      coursArray = planning.cours;
+    } else {
+      console.warn('Planning n\'est pas dans le format attendu:', planning);
+      return [];
+    }
+    
+    return coursArray.filter(cours => 
       cours.jour === jourComplet && 
       cours.heure === hour
+    );
+  };
+
+  const getSurveillancesByDayAndHour = (day, hour) => {
+    // Convertir le jour abrégé en jour complet
+    const joursComplets = {
+      'Lun.': 'Lundi',
+      'Mar.': 'Mardi',
+      'Mer.': 'Mercredi',
+      'Jeu.': 'Jeudi',
+      'Ven.': 'Vendredi'
+    };
+    
+    const jourComplet = joursComplets[day];
+    
+    // Vérifier que surveillances est un tableau avant d'utiliser filter
+    if (!Array.isArray(surveillances)) {
+      console.warn('Surveillances n\'est pas un tableau:', surveillances);
+      return [];
+    }
+    
+    return surveillances.filter(surveillance => 
+      surveillance.jour === jourComplet && 
+      `${surveillance.uhr.start} - ${surveillance.uhr.ende}` === hour
     );
   };
 
@@ -388,40 +553,71 @@ const TeacherPlanningScreen = ({ route }) => {
     ));
   };
 
+  const renderSurveillance = (surveillances) => {
+    if (!surveillances || surveillances.length === 0) return null;
+
+    return surveillances.map((item, index) => (
+      <View key={index} style={styles.surveillanceItem}>
+        <Text style={styles.surveillanceText}>
+          {item.type === 'entre_creneaux' ? '⏰ Surveillance' : '🚶 Surveillance'} {item.lieu}
+        </Text>
+        {item.type === 'entre_creneaux' && (
+          <Text style={styles.surveillanceDetail}>
+            Entre les créneaux
+          </Text>
+        )}
+      </View>
+    ));
+  };
+
+  const renderPlanningCell = (day, timeSlot) => {
+    const cours = getCoursByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`);
+    const surveillances = getSurveillancesByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`);
+
+    return (
+      <View style={styles.planningCell}>
+        {renderCours(cours)}
+        {renderSurveillance(surveillances)}
+      </View>
+    );
+  };
+
   const goToPreviousWeek = () => {
-    console.log('Navigation vers la semaine précédente');
-    if (currentWeek !== null) {
-      const newWeek = currentWeek - 1;
-      console.log('Nouvelle semaine:', newWeek);
-      
-      // Mettre à jour les états immédiatement
-      setCurrentWeek(newWeek);
-      setCurrentYear(currentYear);
-      setRequestedWeek(newWeek);
-      setRequestedYear(currentYear);
-      setLoading(true);
-      
-      // Déclencher le chargement du planning
-      setShouldLoadPlanning(true);
+    console.log('⬅️ Navigation vers la semaine précédente');
+    let newWeek = requestedWeek - 1;
+    let newYear = requestedYear;
+
+    if (newWeek < 1) {
+      newWeek = 52;
+      newYear = requestedYear - 1;
     }
+
+    console.log('📅 Nouvelle semaine/année:', {
+      semaine: newWeek,
+      annee: newYear
+    });
+
+    setRequestedWeek(newWeek);
+    setRequestedYear(newYear);
   };
 
   const goToNextWeek = () => {
-    console.log('Navigation vers la semaine suivante');
-    if (currentWeek !== null) {
-      const newWeek = currentWeek + 1;
-      console.log('Nouvelle semaine:', newWeek);
-      
-      // Mettre à jour les états immédiatement
-      setCurrentWeek(newWeek);
-      setCurrentYear(currentYear);
-      setRequestedWeek(newWeek);
-      setRequestedYear(currentYear);
-      setLoading(true);
-      
-      // Déclencher le chargement du planning
-      setShouldLoadPlanning(true);
+    console.log('➡️ Navigation vers la semaine suivante');
+    let newWeek = requestedWeek + 1;
+    let newYear = requestedYear;
+
+    if (newWeek > 52) {
+      newWeek = 1;
+      newYear = requestedYear + 1;
     }
+
+    console.log('📅 Nouvelle semaine/année:', {
+      semaine: newWeek,
+      annee: newYear
+    });
+
+    setRequestedWeek(newWeek);
+    setRequestedYear(newYear);
   };
 
   // Initialiser le weekOffset à 0 au chargement
@@ -470,6 +666,10 @@ const TeacherPlanningScreen = ({ route }) => {
 
   return (
     <>
+      {console.log('Rendu - État des créneaux horaires:', {
+        timeSlotsLength: timeSlots ? timeSlots.length : 'null',
+        timeSlots: timeSlots
+      })}
       <ScrollView
         key={viewKey}
         style={styles.container}
@@ -529,16 +729,27 @@ const TeacherPlanningScreen = ({ route }) => {
           </View>
 
           {/* Grille des cours */}
-          {timeSlots.map((timeSlot, hourIndex) => (
-            <View key={hourIndex} style={styles.timeRow}>
-              {renderTimeCell(timeSlot)}
-              {days.map((day, dayIndex) => (
-                <View key={dayIndex} style={styles.planningCell}>
-                  {renderCours(getCoursByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`))}
-                </View>
-              ))}
+          {timeSlots && timeSlots.length > 0 ? (
+            timeSlots.map((timeSlot, hourIndex) => (
+              <View key={hourIndex} style={styles.timeRow}>
+                {renderTimeCell(timeSlot)}
+                {days.map((day, dayIndex) => (
+                  <View key={dayIndex} style={styles.planningCell}>
+                    {renderPlanningCell(day, timeSlot)}
+                  </View>
+                ))}
+              </View>
+            ))
+          ) : (
+            <View style={styles.centerContainer}>
+              <Text style={styles.errorText}>
+                Aucun créneau horaire disponible
+              </Text>
+              <Text style={styles.errorSubtext}>
+                Créneaux chargés: {timeSlots ? timeSlots.length : 'null'}
+              </Text>
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
 
@@ -805,6 +1016,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
   },
+  surveillanceItem: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 4,
+    padding: 4,
+    marginBottom: 2,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF9800'
+  },
+  surveillanceText: {
+    fontSize: 12,
+    color: '#E65100',
+    fontWeight: '500'
+  },
+  surveillanceDetail: {
+    fontSize: 10,
+    color: '#F57C00',
+    fontStyle: 'italic'
+  }
 });
 
 export default TeacherPlanningScreen; 

@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: Platform.OS === 'ios' ? 160 : 140,
   },
   schoolItem: {
     backgroundColor: '#FFFFFF',
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    bottom: 16,
+    bottom: Platform.OS === 'ios' ? 80 : 64,
     right: 16,
     left: 16,
     backgroundColor: '#2196F3',

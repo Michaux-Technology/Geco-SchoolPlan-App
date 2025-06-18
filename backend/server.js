@@ -16,12 +16,8 @@ const Cours = require('./models/Cours');
 const Annotation = require('./models/Annotation');
 require('dotenv').config();
 
-// Configuration
-const JWT_SECRET = process.env.JWT_SECRET;
-const MAX_LOGIN_ATTEMPTS = 10;
-const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes en millisecondes
-
-// Liste des utilisateurs par défaut
+// Configuration JWT et utilisateurs par défaut
+const JWT_SECRET = process.env.JWT_SECRET || 'votre_secret_jwt';
 const defaultUsers = [
   {
     username: 'enseignant',
@@ -37,9 +33,8 @@ const defaultUsers = [
 
 // Stockage des tentatives de connexion
 const loginAttempts = new Map();
-
-// Stockage des connexions WebSocket par enseignant
-const teacherConnections = new Map();
+const MAX_LOGIN_ATTEMPTS = 10;
+const BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
 
 // Middleware de vérification des tentatives de connexion
 const checkLoginAttempts = (req, res, next) => {
@@ -59,16 +54,6 @@ const checkLoginAttempts = (req, res, next) => {
   next();
 };
 
-// Fonction pour émettre les mises à jour du planning
-const emitPlanningUpdate = (enseignantId, planning) => {
-  // Envoyer à tous les clients connectés
-  io.emit('planningUpdate', {
-    planning: planning,
-    zeitslots: zeitslots,
-    surveillances: surveillances
-  });
-};
-
 // Fonction pour obtenir le numéro de la semaine
 function getWeekNumber(date) {
   const d = new Date(date);
@@ -83,12 +68,8 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  transports: ['websocket', 'polling'],
-  pingTimeout: 60000,
-  pingInterval: 25000
+    methods: ["GET", "POST"]
+  }
 });
 
 // Middleware
@@ -167,6 +148,8 @@ async function initializeUhr() {
 }
 
 // Connexion à MongoDB avec gestion des erreurs améliorée
+const MONGODB_URI = 'mongodb://192.168.1.104:27017/Geco-SchoolPlan';
+
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
@@ -348,7 +331,6 @@ app.put('/api/cours/:id', async (req, res) => {
   try {
     const coursData = req.body;
     const updatedCours = await Cours.findByIdAndUpdate(req.params.id, coursData, { new: true });
-    io.emit('planningUpdate', { planning: await Cours.find() });
     res.json(updatedCours);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -362,7 +344,7 @@ app.put('/api/cours/:id/annuler', async (req, res) => {
       { annule: true, remplace: false },
       { new: true }
     );
-    io.emit('planningUpdate', { planning: await Cours.find() });
+    io.emit('coursUpdate', await Cours.find());
     res.json(updatedCours);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -383,7 +365,7 @@ app.put('/api/cours/:id/remplacer', async (req, res) => {
       },
       { new: true }
     );
-    io.emit('planningUpdate', { planning: await Cours.find() });
+    io.emit('coursUpdate', await Cours.find());
     res.json(updatedCours);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -396,7 +378,7 @@ app.delete('/api/cours/:id', async (req, res) => {
     if (!cours) {
       return res.status(404).json({ message: 'Cours non trouvé' });
     }
-    io.emit('planningUpdate', { planning: await Cours.find().sort({ jour: 1, heure: 1 }) });
+    io.emit('coursUpdate', await Cours.find().sort({ jour: 1, heure: 1 }));
     res.json({ message: 'Cours supprimé' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -435,38 +417,14 @@ app.get('/api/stats/enseignants', async (req, res) => {
 io.on('connection', (socket) => {
   console.log('Nouvelle connexion Socket.IO');
 
-  // Gestion des abonnements des enseignants
-  socket.on('subscribe', (data) => {
-    if (data.enseignantId) {
-      teacherConnections.set(data.enseignantId, socket);
-      console.log(`Enseignant ${data.enseignantId} abonné aux mises à jour`);
-      
-      // Envoyer les données initiales
-      socket.emit('planningUpdate', { planning, surveillances, zeitslots });
-      socket.emit('enseignantsUpdate', enseignants);
-      socket.emit('coursUpdate', cours);
-      socket.emit('classesUpdate', classes);
-      socket.emit('matieresUpdate', matieres);
-      socket.emit('sallesUpdate', salles);
-      socket.emit('uhrsUpdate', uhrs);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    // Supprimer la connexion de tous les enseignants
-    for (const [enseignantId, connection] of teacherConnections.entries()) {
-      if (connection === socket) {
-        teacherConnections.delete(enseignantId);
-        console.log(`Connexion Socket.IO fermée pour l'enseignant ${enseignantId}`);
-      }
-    }
-  });
-
-  // Gestion des erreurs de connexion
-  socket.on('connect_error', (error) => {
-    console.error('Erreur de connexion Socket.IO:', error);
-    socket.emit('error', 'Erreur de connexion au serveur');
-  });
+  // Envoyer les données initiales
+  socket.emit('planningUpdate', { planning, surveillances, zeitslots });
+  socket.emit('enseignantsUpdate', enseignants);
+  socket.emit('coursUpdate', cours);
+  socket.emit('classesUpdate', classes);
+  socket.emit('matieresUpdate', matieres);
+  socket.emit('sallesUpdate', salles);
+  socket.emit('uhrsUpdate', uhrs);
 
   // Gérer la mise à jour d'un créneau
   socket.on('updateSlot', async (updatedSlot) => {
@@ -547,8 +505,7 @@ io.on('connection', (socket) => {
       });
 
       console.log('Nouveau cours créé:', newCours);
-      const cours = await Cours.find({});
-      io.emit('planningUpdate', { planning: cours });
+      cours = await Cours.find({});
       io.emit('coursUpdate', cours);
       
       // Envoyer une confirmation de succès
@@ -614,7 +571,6 @@ io.on('connection', (socket) => {
       
       // Actualiser les cours après l'ajout
       cours = await Cours.find({});
-      io.emit('planningUpdate', { planning: cours });
       io.emit('coursUpdate', cours);
       
       // Envoyer une réponse
@@ -915,8 +871,8 @@ io.on('connection', (socket) => {
       
       // Émettre les données mises à jour
       const cours = await Cours.find();
-      io.emit('planningUpdate', { planning: cours });
-      io.emit('coursUpdate', cours);
+      socket.emit('coursUpdate', cours);
+      socket.broadcast.emit('coursUpdate', cours);
       
       socket.emit('success', 'Cours mis à jour avec succès');
     } catch (error) {
@@ -933,7 +889,6 @@ io.on('connection', (socket) => {
         return;
       }
       const coursList = await Cours.find({});
-      io.emit('planningUpdate', { planning: coursList });
       io.emit('coursUpdate', coursList);
     } catch (error) {
       socket.emit('error', error.message);
@@ -984,8 +939,7 @@ io.on('connection', (socket) => {
   socket.on('cancelCours', async (coursId) => {
     try {
       await Cours.findByIdAndDelete(coursId);
-      const cours = await Cours.find({});
-      io.emit('planningUpdate', { planning: cours });
+      cours = await Cours.find({});
       io.emit('coursUpdate', cours);
     } catch (error) {
       socket.emit('error', error.message);
@@ -996,8 +950,7 @@ io.on('connection', (socket) => {
   socket.on('replaceCours', async (coursData) => {
     try {
       await Cours.findByIdAndUpdate(coursData._id, coursData, { new: true });
-      const cours = await Cours.find({});
-      io.emit('planningUpdate', { planning: cours });
+      cours = await Cours.find({});
       io.emit('coursUpdate', cours);
     } catch (error) {
       socket.emit('error', error.message);
@@ -1007,20 +960,26 @@ io.on('connection', (socket) => {
   // Routes pour les annotations
   socket.on('saveAnnotation', async (data) => {
     try {
-      const { jour, annotation, semaine, date } = data;
+      const { jour, annotation, semaine, date, annee } = data;
       
+      if (!jour || !semaine || !date || !annee) {
+        throw new Error('Données manquantes pour la sauvegarde de l\'annotation');
+      }
+
       // Normaliser le format du jour
       const normalizedJour = jour.charAt(0).toUpperCase() + jour.slice(1).toLowerCase();
       
-      // Rechercher une annotation existante pour ce jour et cette date
+      // Rechercher une annotation existante pour ce jour et cette semaine
       let existingAnnotation = await Annotation.findOne({ 
         jour: normalizedJour, 
-        date: new Date(date)
+        semaine: semaine,
+        annee: annee
       });
 
       if (existingAnnotation) {
         // Mettre à jour l'annotation existante
         existingAnnotation.annotation = annotation;
+        existingAnnotation.date = new Date(date);
         await existingAnnotation.save();
       } else {
         // Créer une nouvelle annotation
@@ -1028,21 +987,15 @@ io.on('connection', (socket) => {
           jour: normalizedJour, 
           annotation, 
           semaine,
+          annee,
           date: new Date(date)
         });
       }
       
       // Récupérer toutes les annotations pour la semaine actuelle
-      const startOfWeek = new Date(date);
-      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Début de la semaine (Lundi)
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(endOfWeek.getDate() + 4); // Fin de la semaine (Vendredi)
-
       const annotations = await Annotation.find({
-        date: {
-          $gte: startOfWeek,
-          $lte: endOfWeek
-        }
+        semaine: semaine,
+        annee: annee
       });
       
       const annotationsMap = {};
@@ -1091,313 +1044,15 @@ io.on('connection', (socket) => {
       socket.emit('annotationError', error.message);
     }
   });
+
+  socket.on('disconnect', () => {
+    socket.emit('error', 'Client déconnecté');
+  });
 });
 
 // Routes de base
 app.get('/', (req, res) => {
   res.json({ message: 'Bienvenue sur l\'API Geco-SchoolPlan' });
-});
-
-// Route pour mettre à jour le planning avec émission WebSocket
-app.put('/api/planning/:id', async (req, res) => {
-  try {
-    const updatedPlanning = await Planning.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    
-    // Émettre la mise à jour via WebSocket
-    emitPlanningUpdate(updatedPlanning.enseignant, updatedPlanning);
-    
-    res.json(updatedPlanning);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Routes pour l'API mobile
-app.post('/api/mobile/login', checkLoginAttempts, (req, res) => {
-  const { username, password } = req.body;
-
-  // Vérifier si l'utilisateur existe
-  const user = defaultUsers.find(u => u.username === username);
-  
-  if (!user) {
-    // Incrémenter le compteur de tentatives
-    const ip = req.ip;
-    const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
-    attempts.count += 1;
-    attempts.lastAttempt = Date.now();
-    loginAttempts.set(ip, attempts);
-    
-    return res.status(401).json({ message: 'Identifiants invalides' });
-  }
-
-  // Vérifier le mot de passe
-  if (user.password !== password) {
-    // Incrémenter le compteur de tentatives
-    const ip = req.ip;
-    const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
-    attempts.count += 1;
-    attempts.lastAttempt = Date.now();
-    loginAttempts.set(ip, attempts);
-    
-    return res.status(401).json({ message: 'Identifiants invalides' });
-  }
-
-  // Réinitialiser les tentatives de connexion
-  loginAttempts.delete(req.ip);
-
-  // Générer le token JWT
-  const tokenPayload = {
-    username: user.username,
-    role: user.role,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 heures
-  };
-
-  // Générer le refresh token (valide 7 jours)
-  const refreshTokenPayload = {
-    username: user.username,
-    role: user.role,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 jours
-  };
-
-  try {
-    const token = jwt.sign(tokenPayload, JWT_SECRET);
-    const refreshToken = jwt.sign(refreshTokenPayload, JWT_SECRET);
-    
-    res.json({ 
-      token, 
-      refreshToken,
-      user: { 
-        username: user.username, 
-        role: user.role 
-      } 
-    });
-  } catch (error) {
-    console.error('Erreur lors de la génération du token:', error);
-    res.status(500).json({ message: 'Erreur lors de la génération du token' });
-  }
-});
-
-app.get('/api/mobile/status', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-app.get('/api/mobile/enseignant', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token manquant ou invalide' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    console.log('Vérification du token...');
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Token valide, recherche des enseignants...');
-    
-    const enseignants = await Enseignant.find({})
-      .select('nom prenom matiere email telephone')
-      .sort({ nom: 1, prenom: 1 });
-    
-    console.log(`Nombre d'enseignants trouvés: ${enseignants.length}`);
-    res.json(enseignants);
-  } catch (error) {
-    console.error('Erreur détaillée lors de la récupération des enseignants:', error);
-    if (error.name === 'JsonWebTokenError') {
-      res.status(401).json({ message: 'Token invalide' });
-    } else if (error.name === 'TokenExpiredError') {
-      res.status(401).json({ message: 'Token expiré' });
-    } else {
-      console.error('Erreur MongoDB:', error);
-      res.status(500).json({ message: 'Erreur serveur lors de la récupération des enseignants' });
-    }
-  }
-});
-
-app.get('/api/mobile/classe', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token manquant ou invalide' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const classes = await Classe.find({})
-      .select('nom niveau')
-      .sort({ nom: 1 });
-    
-    res.json(classes);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des classes:', error);
-    if (error.name === 'JsonWebTokenError') {
-      res.status(401).json({ message: 'Token invalide' });
-    } else {
-      res.status(500).json({ message: 'Erreur serveur lors de la récupération des classes' });
-    }
-  }
-});
-
-app.get('/api/mobile/salle', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token manquant ou invalide' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const salles = await Salle.find({})
-      .select('nom type capacite')
-      .sort({ nom: 1 });
-    
-    res.json(salles);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des salles:', error);
-    if (error.name === 'JsonWebTokenError') {
-      res.status(401).json({ message: 'Token invalide' });
-    } else {
-      res.status(500).json({ message: 'Erreur serveur lors de la récupération des salles' });
-    }
-  }
-});
-
-app.get('/api/mobile/reset-attempts', (req, res) => {
-  const ip = req.ip;
-  loginAttempts.delete(ip);
-  res.json({ message: 'Tentatives réinitialisées' });
-});
-
-app.get('/api/mobile/cours/enseignant/:id', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token manquant ou invalide' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const enseignantId = req.params.id;
-    const weekOffset = parseInt(req.query.weekOffset) || 0;
-
-    const enseignant = await Enseignant.findById(enseignantId);
-    if (!enseignant) {
-      return res.status(404).json({ message: 'Enseignant non trouvé' });
-    }
-
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + (weekOffset * 7));
-    const targetWeek = getWeekNumber(targetDate);
-    const targetYear = targetDate.getFullYear();
-
-    const cours = await Cours.find({
-      'enseignants.id': enseignantId,
-      semaine: targetWeek,
-      annee: targetYear
-    })
-    .populate('uhr', 'start ende')
-    .sort({ jour: 1, heure: 1 });
-
-    const planningData = cours.map(cours => ({
-      _id: cours._id,
-      jour: cours.jour,
-      heure: cours.heure,
-      matiere: cours.matiere,
-      classe: cours.classe,
-      salle: cours.salle,
-      annule: cours.annule || false,
-      remplace: cours.remplace || false,
-      remplacementInfo: cours.remplacementInfo,
-      semaine: targetWeek,
-      annee: targetYear
-    }));
-
-    res.json(planningData);
-  } catch (error) {
-    console.error('Erreur lors de la récupération du planning:', error);
-    if (error.name === 'JsonWebTokenError') {
-      res.status(401).json({ message: 'Token invalide' });
-    } else {
-      res.status(500).json({ message: 'Erreur serveur lors de la récupération du planning' });
-    }
-  }
-});
-
-app.get('/api/mobile/uhrs', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token manquant ou invalide' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const uhrs = await Uhr.find()
-      .select('nummer start ende')
-      .sort({ nummer: 1 })
-      .lean();
-    
-    if (!uhrs || uhrs.length === 0) {
-      return res.status(404).json({ message: 'Aucun horaire disponible' });
-    }
-
-    const formattedUhrs = uhrs.map(uhr => ({
-      _id: uhr._id,
-      debut: uhr.start,
-      fin: uhr.ende
-    }));
-    
-    res.json(formattedUhrs);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des horaires:', error);
-    if (error.name === 'JsonWebTokenError') {
-      res.status(401).json({ message: 'Token invalide' });
-    } else {
-      res.status(500).json({ message: 'Erreur serveur lors de la récupération des horaires' });
-    }
-  }
-});
-
-// Route pour rafraîchir le token
-app.post('/api/mobile/refresh-token', (req, res) => {
-  const { refreshToken } = req.body;
-
-  if (!refreshToken) {
-    return res.status(401).json({ message: 'Refresh token manquant' });
-  }
-
-  try {
-    const decoded = jwt.verify(refreshToken, JWT_SECRET);
-    
-    // Générer un nouveau token
-    const tokenPayload = {
-      username: decoded.username,
-      role: decoded.role,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 heures
-    };
-
-    const newToken = jwt.sign(tokenPayload, JWT_SECRET);
-    
-    res.json({ 
-      token: newToken,
-      user: {
-        username: decoded.username,
-        role: decoded.role
-      }
-    });
-  } catch (error) {
-    console.error('Erreur lors du rafraîchissement du token:', error);
-    if (error.name === 'TokenExpiredError') {
-      res.status(401).json({ message: 'Session expirée. Veuillez vous reconnecter.' });
-    } else {
-      res.status(401).json({ message: 'Refresh token invalide' });
-    }
-  }
 });
 
 // Gestion des erreurs globales
@@ -1415,6 +1070,10 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Serveur démarré sur le port ${PORT}`);
 });
+
+// Intégration des routes mobiles
+const mobileApi = require('./mobile-api');
+mobileApi(app, { checkLoginAttempts, defaultUsers, JWT_SECRET });
 
 app.post('/api/update-uhr', async (req, res) => {
   try {
@@ -1453,4 +1112,4 @@ app.post('/api/surveillances', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-}); 
+});
