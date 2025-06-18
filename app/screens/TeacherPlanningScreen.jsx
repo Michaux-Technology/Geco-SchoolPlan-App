@@ -61,6 +61,8 @@ const TeacherPlanningScreen = ({ route }) => {
     initializeWeekAndYear();
     console.log('📅 Chargement des créneaux horaires...');
     loadTimeSlots();
+    console.log('🔌 Connexion WebSocket...');
+    connectSocket();
     
     return () => {
       if (socket) {
@@ -94,7 +96,16 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const connectSocket = () => {
     const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-    const socketUrl = baseUrl.replace('http', 'ws');
+    // Corriger l'URL WebSocket
+    let socketUrl = baseUrl;
+    if (baseUrl.startsWith('http://')) {
+      socketUrl = baseUrl.replace('http://', 'ws://');
+    } else if (baseUrl.startsWith('https://')) {
+      socketUrl = baseUrl.replace('https://', 'wss://');
+    }
+    
+    console.log('🔌 Tentative de connexion WebSocket à:', socketUrl);
+    
     const newSocket = io(socketUrl, {
       transports: ['websocket'],
       reconnection: true,
@@ -599,6 +610,8 @@ const TeacherPlanningScreen = ({ route }) => {
 
     setRequestedWeek(newWeek);
     setRequestedYear(newYear);
+    setCurrentWeek(newWeek);
+    setCurrentYear(newYear);
   };
 
   const goToNextWeek = () => {
@@ -618,6 +631,8 @@ const TeacherPlanningScreen = ({ route }) => {
 
     setRequestedWeek(newWeek);
     setRequestedYear(newYear);
+    setCurrentWeek(newWeek);
+    setCurrentYear(newYear);
   };
 
   // Initialiser le weekOffset à 0 au chargement
