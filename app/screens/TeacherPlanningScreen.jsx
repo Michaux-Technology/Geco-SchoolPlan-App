@@ -77,7 +77,9 @@ const TeacherPlanningScreen = ({ route }) => {
       requestedWeek,
       requestedYear,
       currentWeek,
-      currentYear
+      currentYear,
+      planningType: typeof planning,
+      planningLength: planning ? planning.length : 'undefined'
     });
 
     if (requestedWeek && requestedYear) {
@@ -85,7 +87,30 @@ const TeacherPlanningScreen = ({ route }) => {
         semaine: requestedWeek,
         annee: requestedYear
       });
-      loadPlanning();
+      
+      // Ne charger via API REST que si on n'a pas de données WebSocket
+      if (!planning || planning.length === 0) {
+        console.log('📡 Aucune donnée WebSocket disponible, chargement via API REST');
+        loadPlanning();
+      } else {
+        console.log('📡 Données WebSocket disponibles, filtrage des données existantes');
+        // Vérifier que planning est un tableau avant de le filtrer
+        if (Array.isArray(planning)) {
+          const filteredPlanning = planning.filter(cours => 
+            cours.semaine === requestedWeek && 
+            cours.annee === requestedYear
+          );
+          console.log('📅 Planning filtré depuis les données WebSocket:', {
+            semaineDemandee: requestedWeek,
+            anneeDemandee: requestedYear,
+            nombreCours: filteredPlanning.length
+          });
+          setPlanning(filteredPlanning);
+        } else {
+          console.log('⚠️ Planning n\'est pas un tableau, chargement via API REST');
+          loadPlanning();
+        }
+      }
     } else {
       console.log('❌ Impossible de charger le planning - paramètres manquants:', {
         semaine: requestedWeek,
@@ -94,7 +119,13 @@ const TeacherPlanningScreen = ({ route }) => {
     }
   }, [requestedWeek, requestedYear]);
 
+  // Suppression de l'effet de filtrage automatique pour éviter les conflits avec WebSocket
+
   const connectSocket = () => {
+    console.log('🔌 Début de connectSocket()');
+    console.log('🔌 school.apiUrl:', school.apiUrl);
+    console.log('🔌 teacher._id:', teacher._id);
+    
     const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
     // Corriger l'URL WebSocket
     let socketUrl = baseUrl;
@@ -105,118 +136,251 @@ const TeacherPlanningScreen = ({ route }) => {
     }
     
     console.log('🔌 Tentative de connexion WebSocket à:', socketUrl);
+    console.log('🔌 URL de base:', baseUrl);
+    console.log('🔌 URL WebSocket finale:', socketUrl);
     
-    const newSocket = io(socketUrl, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
-
-    newSocket.on('connect', () => {
-      console.log('Connecté au serveur Socket.IO');
-      setWsConnected(true);
-      setError(null);
-      
-      // S'abonner aux mises à jour du planning
-      newSocket.emit('subscribe', {
-        enseignantId: teacher._id
+    try {
+      const newSocket = io(socketUrl, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
       });
-    });
 
-    newSocket.on('planningUpdate', (data) => {
-      console.log('Mise à jour du planning reçue:', {
-        hasPlanning: Boolean(data.planning),
-        hasRemplacements: Boolean(data.planning?.some(cours => cours.remplacement)),
-        planningLength: data.planning?.length
+      console.log('🔌 Socket créé:', newSocket.id);
+
+      newSocket.on('connect', () => {
+        console.log('🔌 Connecté au serveur Socket.IO');
+        console.log('🔌 Socket ID:', newSocket.id);
+        console.log('🔌 Socket URL:', newSocket.io.uri);
+        setWsConnected(true);
+        setError(null);
+        
+        // S'abonner aux mises à jour du planning
+        console.log('📡 Envoi de l\'abonnement pour l\'enseignant:', teacher._id);
+        newSocket.emit('subscribe', {
+          enseignantId: teacher._id
+        });
+        console.log('✅ Abonnement envoyé');
       });
-      
-      setLastUpdate(new Date());
-      
-      // Mettre à jour les données de planning
-      if (data.planning) {
-        // Extraire le tableau de cours selon la structure reçue
-        let coursArray = [];
-        if (Array.isArray(data.planning)) {
-          coursArray = data.planning;
-        } else if (data.planning.cours && Array.isArray(data.planning.cours)) {
-          coursArray = data.planning.cours;
+
+      // Log pour tous les événements reçus
+      newSocket.onAny((eventName, ...args) => {
+        console.log('📡 Événement WebSocket reçu:', eventName, args);
+      });
+
+      newSocket.on('planningUpdate', (data) => {
+        console.log('🔄 Mise à jour du planning reçue via WebSocket:', {
+          hasPlanning: Boolean(data.planning),
+          hasCours: Boolean(data.cours),
+          hasSurveillances: Boolean(data.surveillances),
+          hasUhrs: Boolean(data.uhrs),
+          planningLength: data.planning?.length,
+          coursLength: data.cours?.length,
+          surveillancesLength: data.surveillances?.length,
+          uhrsLength: data.uhrs?.length,
+          currentWeek: data.currentWeek,
+          currentYear: data.currentYear,
+          dataKeys: Object.keys(data),
+          timestamp: new Date().toISOString()
+        });
+        
+        setLastUpdate(new Date());
+        
+        // Mettre à jour les données de planning
+        if (data.cours && Array.isArray(data.cours)) {
+          // Données reçues au format {cours: [...], surveillances: [...], uhrs: [...]}
+          console.log('📚 Cours reçus via WebSocket:', data.cours.length);
+          
+          // Si le backend a envoyé la semaine/année, les utiliser
+          const weekToUse = data.currentWeek || requestedWeek || currentWeek;
+          const yearToUse = data.currentYear || requestedYear || currentYear;
+          
+          console.log('📅 Utilisation des paramètres:', {
+            weekToUse,
+            yearToUse,
+            dataCurrentWeek: data.currentWeek,
+            dataCurrentYear: data.currentYear,
+            requestedWeek,
+            requestedYear,
+            currentWeek,
+            currentYear
+          });
+          
+          if (weekToUse && yearToUse) {
+            // Filtrer les cours pour la semaine demandée
+            const filteredPlanning = data.cours.filter(cours => 
+              cours.semaine === weekToUse && 
+              cours.annee === yearToUse
+            );
+            console.log('📅 Planning filtré pour la semaine:', {
+              semaineDemandee: weekToUse,
+              anneeDemandee: yearToUse,
+              nombreCours: filteredPlanning.length,
+              totalCoursRecus: data.cours.length
+            });
+            setPlanning(filteredPlanning);
+          } else {
+            // Si aucune semaine n'est définie, stocker tous les cours
+            console.log('📅 Aucune semaine définie, stockage de tous les cours:', data.cours.length);
+            setPlanning(data.cours);
+          }
+        } else if (data.planning) {
+          // Ancien format pour compatibilité
+          console.log('📚 Planning reçu au format legacy:', data.planning.length);
+          
+          // Extraire le tableau de cours selon la structure reçue
+          let coursArray = [];
+          if (Array.isArray(data.planning)) {
+            coursArray = data.planning;
+          } else if (data.planning.cours && Array.isArray(data.planning.cours)) {
+            coursArray = data.planning.cours;
+          }
+          
+          if (coursArray.length > 0) {
+            // Si requestedWeek et requestedYear ne sont pas encore initialisés,
+            // utiliser la semaine actuelle par défaut
+            const weekToUse = requestedWeek || currentWeek;
+            const yearToUse = requestedYear || currentYear;
+            
+            if (weekToUse && yearToUse) {
+              // Filtrer les cours pour la semaine demandée
+              const filteredPlanning = coursArray.filter(cours => 
+                cours.semaine === weekToUse && 
+                cours.annee === yearToUse
+              );
+              console.log('📅 Planning filtré (legacy):', {
+                semaineDemandee: weekToUse,
+                anneeDemandee: yearToUse,
+                nombreCours: filteredPlanning.length
+              });
+              setPlanning(filteredPlanning);
+            } else {
+              // Si aucune semaine n'est définie, stocker tous les cours
+              console.log('📅 Aucune semaine définie (legacy), stockage de tous les cours:', coursArray.length);
+              setPlanning(coursArray);
+            }
+          }
         }
         
-        if (coursArray.length > 0) {
-          // Filtrer les cours pour la semaine demandée
-          const filteredPlanning = coursArray.filter(cours => 
-            cours.semaine === requestedWeek && 
-            cours.annee === requestedYear
-          );
-          console.log('Planning filtré:', {
-            semaineDemandee: requestedWeek,
-            anneeDemandee: requestedYear,
-            nombreCours: filteredPlanning.length
-          });
-          setPlanning(filteredPlanning);
+        // Mettre à jour les surveillances
+        if (data.surveillances && Array.isArray(data.surveillances)) {
+          console.log('👁️ Surveillances reçues via WebSocket:', data.surveillances.length);
+          setSurveillances(data.surveillances);
         }
-      }
-      
-      // Mettre à jour les créneaux horaires
-      if (data.zeitslots) {
-        const formattedTimeSlots = data.zeitslots.map(slot => ({
-          _id: slot._id,
-          debut: slot.start,
-          fin: slot.ende
-        }));
-        console.log('Créneaux horaires mis à jour:', formattedTimeSlots);
-        setTimeSlots(formattedTimeSlots);
-      } else if (data.uhrs) {
-        // Si les créneaux horaires sont dans data.uhrs
-        const formattedTimeSlots = data.uhrs.map(slot => ({
-          _id: slot._id,
-          debut: slot.start,
-          fin: slot.ende
-        }));
-        console.log('Créneaux horaires mis à jour (uhrs):', formattedTimeSlots);
-        setTimeSlots(formattedTimeSlots);
-      } else if (data.planning && data.planning.uhrs) {
-        // Si les créneaux horaires sont dans data.planning.uhrs
-        const formattedTimeSlots = data.planning.uhrs.map(slot => ({
-          _id: slot._id,
-          debut: slot.start,
-          fin: slot.ende
-        }));
-        console.log('Créneaux horaires mis à jour (planning.uhrs):', formattedTimeSlots);
-        setTimeSlots(formattedTimeSlots);
-      } else {
-        console.log('Aucun créneau horaire trouvé dans les données:', {
-          hasZeitslots: Boolean(data.zeitslots),
-          hasUhrs: Boolean(data.uhrs),
-          hasPlanningUhrs: Boolean(data.planning?.uhrs),
-          dataKeys: Object.keys(data)
+        
+        // Mettre à jour les créneaux horaires
+        if (data.uhrs && Array.isArray(data.uhrs)) {
+          const formattedTimeSlots = data.uhrs.map(slot => ({
+            _id: slot._id,
+            debut: slot.start,
+            fin: slot.ende
+          }));
+          console.log('⏰ Créneaux horaires mis à jour via WebSocket:', formattedTimeSlots.length);
+          setTimeSlots(formattedTimeSlots);
+        } else if (data.zeitslots) {
+          const formattedTimeSlots = data.zeitslots.map(slot => ({
+            _id: slot._id,
+            debut: slot.start,
+            fin: slot.ende
+          }));
+          console.log('⏰ Créneaux horaires mis à jour (zeitslots):', formattedTimeSlots.length);
+          setTimeSlots(formattedTimeSlots);
+        } else if (data.planning && data.planning.uhrs) {
+          const formattedTimeSlots = data.planning.uhrs.map(slot => ({
+            _id: slot._id,
+            debut: slot.start,
+            fin: slot.ende
+          }));
+          console.log('⏰ Créneaux horaires mis à jour (planning.uhrs):', formattedTimeSlots.length);
+          setTimeSlots(formattedTimeSlots);
+        } else {
+          console.log('⚠️ Aucun créneau horaire trouvé dans les données WebSocket:', {
+            hasZeitslots: Boolean(data.zeitslots),
+            hasUhrs: Boolean(data.uhrs),
+            hasPlanningUhrs: Boolean(data.planning?.uhrs),
+            dataKeys: Object.keys(data)
+          });
+        }
+
+        // Forcer un remontage du composant
+        setViewKey(prev => prev + 1);
+        console.log('🔄 Composant remonté pour afficher les nouvelles données');
+      });
+
+      newSocket.on('coursUpdate', (data) => {
+        console.log('🔄 Mise à jour des cours reçue via WebSocket (coursUpdate):', {
+          dataLength: data.length,
+          timestamp: new Date().toISOString()
         });
-      }
-      
-      // Mettre à jour les surveillances
-      if (data.surveillances) {
-        console.log('Surveillances reçues:', data.surveillances);
-      }
+        
+        setLastUpdate(new Date());
+        
+        // Traiter les données comme si c'était un planningUpdate
+        if (Array.isArray(data)) {
+          console.log('📚 Cours reçus via coursUpdate:', data.length);
+          
+          // Si requestedWeek et requestedYear ne sont pas encore initialisés,
+          // utiliser la semaine actuelle par défaut
+          const weekToUse = requestedWeek || currentWeek;
+          const yearToUse = requestedYear || currentYear;
+          
+          if (weekToUse && yearToUse) {
+            // Filtrer les cours pour la semaine demandée
+            const filteredPlanning = data.filter(cours => 
+              cours.semaine === weekToUse && 
+              cours.annee === yearToUse
+            );
+            console.log('📅 Planning filtré (coursUpdate):', {
+              semaineDemandee: weekToUse,
+              anneeDemandee: yearToUse,
+              nombreCours: filteredPlanning.length,
+              totalCoursRecus: data.length
+            });
+            setPlanning(filteredPlanning);
+          } else {
+            // Si aucune semaine n'est définie, stocker tous les cours
+            console.log('📅 Aucune semaine définie (coursUpdate), stockage de tous les cours:', data.length);
+            setPlanning(data);
+          }
+        }
+        
+        // Forcer un remontage du composant
+        setViewKey(prev => prev + 1);
+        console.log('🔄 Composant remonté pour afficher les nouvelles données (coursUpdate)');
+      });
 
-      // Forcer un remontage du composant
-      setViewKey(prev => prev + 1);
-    });
+      newSocket.on('connect_error', (error) => {
+        console.error('❌ Erreur de connexion Socket.IO:', error);
+        console.error('❌ Détails de l\'erreur:', {
+          message: error.message,
+          description: error.description,
+          context: error.context,
+          type: error.type
+        });
+        setError('Erreur de connexion en temps réel');
+        setWsConnected(false);
+      });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('Erreur de connexion Socket.IO:', error);
-      setError('Erreur de connexion en temps réel');
-      setWsConnected(false);
-    });
+      newSocket.on('disconnect', (reason) => {
+        console.log('🔌 Déconnecté du serveur Socket.IO:', reason);
+        console.log('🔌 Raison de la déconnexion:', reason);
+        setWsConnected(false);
+      });
 
-    newSocket.on('disconnect', () => {
-      console.log('Déconnecté du serveur Socket.IO');
-      setWsConnected(false);
-    });
+      newSocket.on('error', (error) => {
+        console.error('❌ Erreur Socket.IO:', error);
+        setError('Erreur de connexion en temps réel');
+      });
 
-    setSocket(newSocket);
+      setSocket(newSocket);
+      console.log('🔌 Socket stocké dans l\'état');
+    } catch (error) {
+      console.error('❌ Erreur lors de la création du socket:', error);
+      setError('Erreur lors de la création de la connexion WebSocket');
+    }
   };
 
   const loadTimeSlots = async () => {
@@ -595,12 +759,16 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const goToPreviousWeek = () => {
     console.log('⬅️ Navigation vers la semaine précédente');
-    let newWeek = requestedWeek - 1;
-    let newYear = requestedYear;
+    // Utiliser des valeurs par défaut si requestedWeek/requestedYear sont null
+    const currentWeekValue = requestedWeek || currentWeek || 25;
+    const currentYearValue = requestedYear || currentYear || 2025;
+    
+    let newWeek = currentWeekValue - 1;
+    let newYear = currentYearValue;
 
     if (newWeek < 1) {
       newWeek = 52;
-      newYear = requestedYear - 1;
+      newYear = currentYearValue - 1;
     }
 
     console.log('📅 Nouvelle semaine/année:', {
@@ -616,12 +784,16 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const goToNextWeek = () => {
     console.log('➡️ Navigation vers la semaine suivante');
-    let newWeek = requestedWeek + 1;
-    let newYear = requestedYear;
+    // Utiliser des valeurs par défaut si requestedWeek/requestedYear sont null
+    const currentWeekValue = requestedWeek || currentWeek || 25;
+    const currentYearValue = requestedYear || currentYear || 2025;
+    
+    let newWeek = currentWeekValue + 1;
+    let newYear = currentYearValue;
 
     if (newWeek > 52) {
       newWeek = 1;
-      newYear = requestedYear + 1;
+      newYear = currentYearValue + 1;
     }
 
     console.log('📅 Nouvelle semaine/année:', {
@@ -684,6 +856,12 @@ const TeacherPlanningScreen = ({ route }) => {
       {console.log('Rendu - État des créneaux horaires:', {
         timeSlotsLength: timeSlots ? timeSlots.length : 'null',
         timeSlots: timeSlots
+      })}
+      {console.log('Rendu - État de la connexion WebSocket:', {
+        wsConnected,
+        socketId: socket?.id,
+        lastUpdate: lastUpdate?.toISOString(),
+        planningLength: planning?.length || 0
       })}
       <ScrollView
         key={viewKey}

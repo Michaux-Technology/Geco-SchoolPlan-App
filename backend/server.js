@@ -329,30 +329,136 @@ app.post('/api/cours', async (req, res) => {
 
 app.put('/api/cours/:id', async (req, res) => {
   try {
+    console.log('✏️ Route PUT /api/cours/:id appelée pour le cours:', req.params.id);
+    console.log('📝 Données reçues:', req.body);
+    
+    // Récupérer le cours avant de le modifier pour avoir les informations des enseignants
+    const coursToUpdate = await Cours.findById(req.params.id);
+    if (!coursToUpdate) {
+      console.log('❌ Cours non trouvé:', req.params.id);
+      res.status(404).json({ message: 'Cours non trouvé' });
+      return;
+    }
+    
+    // Extraire les IDs des enseignants du cours (avant modification)
+    const enseignantsIdsBefore = coursToUpdate.enseignants.map(e => e.id.toString());
+    console.log('✏️ Modification du cours pour les enseignants:', enseignantsIdsBefore);
+    console.log('📋 Enseignants du cours:', coursToUpdate.enseignants);
+    
     const coursData = req.body;
     const updatedCours = await Cours.findByIdAndUpdate(req.params.id, coursData, { new: true });
+    
+    console.log('✅ Cours mis à jour:', updatedCours._id);
+    console.log('📋 Nouveau statut du cours:', {
+      annule: updatedCours.annule,
+      remplace: updatedCours.remplace
+    });
+    
+    // Envoyer la mise à jour générale
+    io.emit('coursUpdate', await Cours.find());
+    
+    // Envoyer une mise à jour spécifique à tous les enseignants concernés
+    console.log('📤 Envoi de mises à jour aux enseignants après modification:', enseignantsIdsBefore);
+    console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+    
+    // Parcourir tous les sockets connectés et envoyer les mises à jour
+    io.sockets.sockets.forEach((clientSocket) => {
+      console.log(`🔍 Vérification du socket ${clientSocket.id}:`, {
+        subscribedEnseignantId: clientSocket.subscribedEnseignantId,
+        enseignantsIds: enseignantsIdsBefore,
+        isMatch: clientSocket.subscribedEnseignantId && enseignantsIdsBefore.includes(clientSocket.subscribedEnseignantId)
+      });
+      
+      if (clientSocket.subscribedEnseignantId && enseignantsIdsBefore.includes(clientSocket.subscribedEnseignantId)) {
+        console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId} après modification`);
+        try {
+          sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+          console.log(`✅ Mise à jour envoyée avec succès à l'enseignant ${clientSocket.subscribedEnseignantId}`);
+        } catch (error) {
+          console.error(`❌ Erreur lors de l'envoi de la mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId}:`, error);
+        }
+      }
+    });
+    
     res.json(updatedCours);
   } catch (error) {
+    console.error('Erreur lors de la modification du cours:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.put('/api/cours/:id/annuler', async (req, res) => {
   try {
+    console.log('🚫 Route d\'annulation appelée pour le cours:', req.params.id);
+    console.log('🚫 Méthode HTTP:', req.method);
+    console.log('🚫 URL complète:', req.originalUrl);
+    console.log('🚫 Headers:', req.headers);
+    console.log('🚫 Body:', req.body);
+    
+    // Récupérer le cours avant de le modifier pour avoir les informations des enseignants
+    const coursToUpdate = await Cours.findById(req.params.id);
+    if (!coursToUpdate) {
+      console.log('❌ Cours non trouvé:', req.params.id);
+      res.status(404).json({ message: 'Cours non trouvé' });
+      return;
+    }
+    
+    // Extraire les IDs des enseignants du cours
+    const enseignantsIds = coursToUpdate.enseignants.map(e => e.id.toString());
+    console.log('🚫 Annulation du cours pour les enseignants:', enseignantsIds);
+    
+    // Mettre à jour le cours
     const updatedCours = await Cours.findByIdAndUpdate(
       req.params.id,
       { annule: true, remplace: false },
       { new: true }
     );
-    io.emit('coursUpdate', await Cours.find());
+    
+    console.log('✅ Cours mis à jour:', updatedCours._id);
+    
+    // Envoyer une mise à jour spécifique à tous les enseignants concernés
+    console.log('📤 Envoi de mises à jour aux enseignants après annulation:', enseignantsIds);
+    console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+    
+    // Parcourir tous les sockets connectés et envoyer les mises à jour
+    io.sockets.sockets.forEach((clientSocket) => {
+      console.log(`🔍 Vérification du socket ${clientSocket.id}:`, {
+        subscribedEnseignantId: clientSocket.subscribedEnseignantId,
+        enseignantsIds: enseignantsIds,
+        isMatch: clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)
+      });
+      
+      if (clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
+        console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId} après annulation`);
+        try {
+          sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+          console.log(`✅ Mise à jour envoyée avec succès à l'enseignant ${clientSocket.subscribedEnseignantId}`);
+        } catch (error) {
+          console.error(`❌ Erreur lors de l'envoi de la mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId}:`, error);
+        }
+      }
+    });
+    
     res.json(updatedCours);
   } catch (error) {
+    console.error('Erreur lors de l\'annulation du cours:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
 app.put('/api/cours/:id/remplacer', async (req, res) => {
   try {
+    // Récupérer le cours avant de le modifier pour avoir les informations des enseignants
+    const coursToUpdate = await Cours.findById(req.params.id);
+    if (!coursToUpdate) {
+      res.status(404).json({ message: 'Cours non trouvé' });
+      return;
+    }
+    
+    // Extraire les IDs des enseignants du cours (avant modification)
+    const enseignantsIdsBefore = coursToUpdate.enseignants.map(e => e.id.toString());
+    console.log('🔄 Remplacement du cours pour les enseignants:', enseignantsIdsBefore);
+    
     const { enseignant, matiere, salle } = req.body;
     const updatedCours = await Cours.findByIdAndUpdate(
       req.params.id,
@@ -365,20 +471,71 @@ app.put('/api/cours/:id/remplacer', async (req, res) => {
       },
       { new: true }
     );
+    
+    // Envoyer la mise à jour générale
     io.emit('coursUpdate', await Cours.find());
+    
+    // Envoyer une mise à jour spécifique à tous les enseignants concernés
+    console.log('📤 Envoi de mises à jour aux enseignants après remplacement:', enseignantsIdsBefore);
+    console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+    
+    // Parcourir tous les sockets connectés et envoyer les mises à jour
+    io.sockets.sockets.forEach((clientSocket) => {
+      console.log(`🔍 Vérification du socket ${clientSocket.id}:`, {
+        subscribedEnseignantId: clientSocket.subscribedEnseignantId,
+        enseignantsIds: enseignantsIdsBefore,
+        isMatch: clientSocket.subscribedEnseignantId && enseignantsIdsBefore.includes(clientSocket.subscribedEnseignantId)
+      });
+      
+      if (clientSocket.subscribedEnseignantId && enseignantsIdsBefore.includes(clientSocket.subscribedEnseignantId)) {
+        console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId} après remplacement`);
+        sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+      }
+    });
+    
     res.json(updatedCours);
   } catch (error) {
+    console.error('Erreur lors du remplacement du cours:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
 app.delete('/api/cours/:id', async (req, res) => {
   try {
-    const cours = await Cours.findByIdAndDelete(req.params.id);
-    if (!cours) {
-      return res.status(404).json({ message: 'Cours non trouvé' });
+    // Récupérer le cours avant de le supprimer pour avoir les informations des enseignants
+    const coursToDelete = await Cours.findById(req.params.id);
+    if (!coursToDelete) {
+      res.status(404).json({ message: 'Cours non trouvé' });
+      return;
     }
-    io.emit('coursUpdate', await Cours.find().sort({ jour: 1, heure: 1 }));
+    
+    // Extraire les IDs des enseignants du cours
+    const enseignantsIds = coursToDelete.enseignants.map(e => e.id.toString());
+    console.log('🗑️ Suppression du cours pour les enseignants:', enseignantsIds);
+    
+    // Supprimer le cours
+    await Cours.findByIdAndDelete(req.params.id);
+    const coursList = await Cours.find({});
+    io.emit('coursUpdate', coursList);
+    
+    // Envoyer une mise à jour spécifique à tous les enseignants concernés
+    console.log('📤 Envoi de mises à jour aux enseignants après suppression:', enseignantsIds);
+    console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+    
+    // Parcourir tous les sockets connectés et envoyer les mises à jour
+    io.sockets.sockets.forEach((clientSocket) => {
+      console.log(`🔍 Vérification du socket ${clientSocket.id}:`, {
+        subscribedEnseignantId: clientSocket.subscribedEnseignantId,
+        enseignantsIds: enseignantsIds,
+        isMatch: clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)
+      });
+      
+      if (clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
+        console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId} après suppression`);
+        sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+      }
+    });
+    
     res.json({ message: 'Cours supprimé' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -413,9 +570,130 @@ app.get('/api/stats/enseignants', async (req, res) => {
   }
 });
 
+// Fonction helper pour envoyer les mises à jour spécifiques à l'enseignant
+const sendTeacherUpdate = async (socket, enseignantId) => {
+  if (!enseignantId) {
+    console.log('❌ Aucun enseignant abonné, pas de mise à jour envoyée');
+    return;
+  }
+  
+  try {
+    console.log(`🔍 Recherche des cours pour l'enseignant ${enseignantId}...`);
+    
+    // Récupérer la semaine et l'année actuelles
+    const today = new Date();
+    const currentWeek = getWeekNumber(today);
+    const currentYear = today.getFullYear();
+    
+    console.log(`📅 Filtrage pour la semaine ${currentWeek} de ${currentYear}`);
+    
+    const enseignantCours = await Cours.find({
+      'enseignants.id': enseignantId.toString(),
+      semaine: currentWeek,
+      annee: currentYear
+    }).populate('classe matiere salle');
+    
+    console.log(`📚 Cours trouvés pour l'enseignant (semaine ${currentWeek}): ${enseignantCours.length}`);
+    
+    const enseignantSurveillances = await Surveillance.find({
+      enseignantId: enseignantId.toString(),
+      semaine: currentWeek,
+      annee: currentYear
+    }).populate('classe salle uhr');
+    
+    console.log(`👁️ Surveillances trouvées pour l'enseignant (semaine ${currentWeek}): ${enseignantSurveillances.length}`);
+    
+    const updateData = { 
+      cours: enseignantCours, 
+      surveillances: enseignantSurveillances, 
+      uhrs: uhrs,
+      currentWeek: currentWeek,
+      currentYear: currentYear
+    };
+    
+    console.log('📤 Envoi de la mise à jour:', {
+      enseignantId,
+      semaine: currentWeek,
+      annee: currentYear,
+      coursCount: enseignantCours.length,
+      surveillancesCount: enseignantSurveillances.length,
+      uhrsCount: uhrs.length
+    });
+    
+    socket.emit('planningUpdate', updateData);
+    
+    console.log(`✅ Mise à jour envoyée à l'enseignant ${enseignantId}`);
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'envoi de la mise à jour:', error);
+  }
+};
+
 // Gestion des mises à jour en temps réel avec Socket.IO
 io.on('connection', (socket) => {
   console.log('Nouvelle connexion Socket.IO');
+
+  // Stocker l'ID de l'enseignant pour ce socket
+  let subscribedEnseignantId = null;
+
+  // Gérer l'abonnement d'un enseignant
+  socket.on('subscribe', async (data) => {
+    try {
+      console.log('📡 Abonnement reçu:', data);
+      console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+      console.log('📋 Liste des sockets abonnés:', Array.from(io.sockets.sockets.values()).map(s => s.subscribedEnseignantId).filter(Boolean));
+      
+      subscribedEnseignantId = data.enseignantId;
+      
+      // Stocker l'ID de l'enseignant sur le socket pour pouvoir l'utiliser plus tard
+      socket.subscribedEnseignantId = data.enseignantId;
+      
+      // Récupérer la semaine et l'année actuelles
+      const today = new Date();
+      const currentWeek = getWeekNumber(today);
+      const currentYear = today.getFullYear();
+      
+      console.log(`🔍 Recherche des cours pour l'enseignant ${subscribedEnseignantId} (semaine ${currentWeek})...`);
+      const enseignantCours = await Cours.find({
+        'enseignants.id': subscribedEnseignantId.toString(),
+        semaine: currentWeek,
+        annee: currentYear
+      }).populate('classe matiere salle');
+      
+      console.log(`📚 Cours trouvés pour l'enseignant (semaine ${currentWeek}): ${enseignantCours.length}`);
+      
+      const enseignantSurveillances = await Surveillance.find({
+        enseignantId: subscribedEnseignantId.toString(),
+        semaine: currentWeek,
+        annee: currentYear
+      }).populate('classe salle uhr');
+      
+      console.log(`👁️ Surveillances trouvées pour l'enseignant (semaine ${currentWeek}): ${enseignantSurveillances.length}`);
+      
+      const updateData = { 
+        cours: enseignantCours, 
+        surveillances: enseignantSurveillances, 
+        uhrs: uhrs,
+        currentWeek: currentWeek,
+        currentYear: currentYear
+      };
+      
+      console.log('📤 Envoi des données initiales:', {
+        enseignantId: subscribedEnseignantId,
+        semaine: currentWeek,
+        annee: currentYear,
+        coursCount: enseignantCours.length,
+        surveillancesCount: enseignantSurveillances.length,
+        uhrsCount: uhrs.length
+      });
+      
+      socket.emit('planningUpdate', updateData);
+      
+      console.log(`✅ Enseignant ${subscribedEnseignantId} abonné aux mises à jour`);
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'abonnement:', error);
+      socket.emit('error', error.message);
+    }
+  });
 
   // Envoyer les données initiales
   socket.emit('planningUpdate', { planning, surveillances, zeitslots });
@@ -506,7 +784,32 @@ io.on('connection', (socket) => {
 
       console.log('Nouveau cours créé:', newCours);
       cours = await Cours.find({});
+      
+      // Envoyer une mise à jour à tous les clients connectés
       io.emit('coursUpdate', cours);
+      
+      // Envoyer une mise à jour spécifique à tous les enseignants concernés
+      const enseignantsIds = enseignants.map(e => e.id.toString());
+      console.log('📤 Envoi de mises à jour aux enseignants:', enseignantsIds);
+      console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+      console.log('📋 Sockets abonnés:', Array.from(io.sockets.sockets.values()).map(s => ({
+        id: s.id,
+        subscribedEnseignantId: s.subscribedEnseignantId
+      })));
+      
+      // Parcourir tous les sockets connectés et envoyer les mises à jour
+      io.sockets.sockets.forEach((clientSocket) => {
+        console.log(`🔍 Vérification du socket ${clientSocket.id}:`, {
+          subscribedEnseignantId: clientSocket.subscribedEnseignantId,
+          enseignantsIds: enseignantsIds,
+          isMatch: clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)
+        });
+        
+        if (clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
+          console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId}`);
+          sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+        }
+      });
       
       // Envoyer une confirmation de succès
       socket.emit('success', 'Cours ajouté avec succès');
@@ -572,6 +875,18 @@ io.on('connection', (socket) => {
       // Actualiser les cours après l'ajout
       cours = await Cours.find({});
       io.emit('coursUpdate', cours);
+      
+      // Envoyer une mise à jour spécifique à tous les enseignants concernés
+      const enseignantsIds = courses.flatMap(c => c.enseignants.map(e => (e.id || e._id).toString())).filter((id, index, arr) => arr.indexOf(id) === index);
+      console.log('📤 Envoi de mises à jour aux enseignants (pasteWeek):', enseignantsIds);
+      
+      // Parcourir tous les sockets connectés et envoyer les mises à jour
+      io.sockets.sockets.forEach((clientSocket) => {
+        if (clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
+          console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId}`);
+          sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+        }
+      });
       
       // Envoyer une réponse
       if (errorCount === 0) {
@@ -883,14 +1198,43 @@ io.on('connection', (socket) => {
 
   socket.on('deleteCours', async (id) => {
     try {
-      const cours = await Cours.findByIdAndDelete(id);
-      if (!cours) {
+      // Récupérer le cours avant de le supprimer pour avoir les informations des enseignants
+      const coursToDelete = await Cours.findById(id);
+      if (!coursToDelete) {
         socket.emit('error', 'Cours non trouvé');
         return;
       }
+      
+      // Extraire les IDs des enseignants du cours
+      const enseignantsIds = coursToDelete.enseignants.map(e => e.id.toString());
+      console.log('🗑️ Suppression du cours pour les enseignants:', enseignantsIds);
+      
+      // Supprimer le cours
+      await Cours.findByIdAndDelete(id);
       const coursList = await Cours.find({});
       io.emit('coursUpdate', coursList);
+      
+      // Envoyer une mise à jour spécifique à tous les enseignants concernés
+      console.log('📤 Envoi de mises à jour aux enseignants après suppression:', enseignantsIds);
+      console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+      
+      // Parcourir tous les sockets connectés et envoyer les mises à jour
+      io.sockets.sockets.forEach((clientSocket) => {
+        console.log(`🔍 Vérification du socket ${clientSocket.id}:`, {
+          subscribedEnseignantId: clientSocket.subscribedEnseignantId,
+          enseignantsIds: enseignantsIds,
+          isMatch: clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)
+        });
+        
+        if (clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
+          console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId} après suppression`);
+          sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+        }
+      });
+      
+      socket.emit('success', 'Cours supprimé avec succès');
     } catch (error) {
+      console.error('Erreur lors de la suppression du cours:', error);
       socket.emit('error', error.message);
     }
   });
@@ -938,10 +1282,55 @@ io.on('connection', (socket) => {
   // Gérer l'annulation d'un cours
   socket.on('cancelCours', async (coursId) => {
     try {
-      await Cours.findByIdAndDelete(coursId);
-      cours = await Cours.find({});
-      io.emit('coursUpdate', cours);
+      console.log('🚫 Événement cancelCours reçu pour le cours:', coursId);
+      
+      // Récupérer le cours avant de le modifier pour avoir les informations des enseignants
+      const coursToUpdate = await Cours.findById(coursId);
+      if (!coursToUpdate) {
+        console.log('❌ Cours non trouvé:', coursId);
+        socket.emit('error', 'Cours non trouvé');
+        return;
+      }
+      
+      // Extraire les IDs des enseignants du cours
+      const enseignantsIds = coursToUpdate.enseignants.map(e => e.id.toString());
+      console.log('🚫 Annulation du cours pour les enseignants:', enseignantsIds);
+      
+      // Marquer le cours comme annulé au lieu de le supprimer
+      const updatedCours = await Cours.findByIdAndUpdate(
+        coursId,
+        { annule: true, remplace: false },
+        { new: true }
+      );
+      
+      console.log('✅ Cours marqué comme annulé:', updatedCours._id);
+      
+      // Envoyer une mise à jour spécifique à tous les enseignants concernés
+      console.log('📤 Envoi de mises à jour aux enseignants après annulation:', enseignantsIds);
+      console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
+      
+      // Parcourir tous les sockets connectés et envoyer les mises à jour
+      io.sockets.sockets.forEach((clientSocket) => {
+        console.log(`🔍 Vérification du socket ${clientSocket.id}:`, {
+          subscribedEnseignantId: clientSocket.subscribedEnseignantId,
+          enseignantsIds: enseignantsIds,
+          isMatch: clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)
+        });
+        
+        if (clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
+          console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId} après annulation`);
+          try {
+            sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+            console.log(`✅ Mise à jour envoyée avec succès à l'enseignant ${clientSocket.subscribedEnseignantId}`);
+          } catch (error) {
+            console.error(`❌ Erreur lors de l'envoi de la mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId}:`, error);
+          }
+        }
+      });
+      
+      socket.emit('success', 'Cours annulé avec succès');
     } catch (error) {
+      console.error('Erreur lors de l\'annulation du cours:', error);
       socket.emit('error', error.message);
     }
   });
@@ -949,10 +1338,39 @@ io.on('connection', (socket) => {
   // Gérer le remplacement d'un cours
   socket.on('replaceCours', async (coursData) => {
     try {
+      // Récupérer le cours avant de le modifier pour avoir les informations des enseignants
+      const coursToUpdate = await Cours.findById(coursData._id);
+      if (!coursToUpdate) {
+        socket.emit('error', 'Cours non trouvé');
+        return;
+      }
+      
+      // Extraire les IDs des enseignants du cours (avant et après modification)
+      const enseignantsIdsBefore = coursToUpdate.enseignants.map(e => e.id.toString());
+      const enseignantsIdsAfter = coursData.enseignants.map(e => e.id.toString());
+      const allEnseignantsIds = [...new Set([...enseignantsIdsBefore, ...enseignantsIdsAfter])];
+      
+      console.log('🔄 Remplacement du cours pour les enseignants:', allEnseignantsIds);
+      
+      // Mettre à jour le cours
       await Cours.findByIdAndUpdate(coursData._id, coursData, { new: true });
       cours = await Cours.find({});
       io.emit('coursUpdate', cours);
+      
+      // Envoyer une mise à jour spécifique à tous les enseignants concernés
+      console.log('📤 Envoi de mises à jour aux enseignants après remplacement:', allEnseignantsIds);
+      
+      // Parcourir tous les sockets connectés et envoyer les mises à jour
+      io.sockets.sockets.forEach((clientSocket) => {
+        if (clientSocket.subscribedEnseignantId && allEnseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
+          console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId} après remplacement`);
+          sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+        }
+      });
+      
+      socket.emit('success', 'Cours remplacé avec succès');
     } catch (error) {
+      console.error('Erreur lors du remplacement du cours:', error);
       socket.emit('error', error.message);
     }
   });
