@@ -65,6 +65,10 @@ const coursSchema = new mongoose.Schema({
   remplacementInfo: {
     type: String,
     default: ''
+  },
+  commentaire: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

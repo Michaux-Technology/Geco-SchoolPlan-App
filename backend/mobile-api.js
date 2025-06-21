@@ -99,13 +99,14 @@ app.get('/api/mobile/planning', async (req, res) => {
     
     console.log(`Recherche du planning pour semaine ${semaine}, année ${annee}`);
     
-    const planning = await Cours.find({
+    // Récupérer les cours
+    const cours = await Cours.find({
       semaine: parseInt(semaine),
       annee: parseInt(annee)
-    }).populate('classe matiere salle');
+    }).populate('classe matiere salle uhr');
     
-    console.log(`Retour de ${planning.length} cours pour cette semaine`);
-    res.json(planning);
+    console.log(`Retour de ${cours.length} cours pour cette semaine`);
+    res.json(cours);
   } catch (error) {
     console.error('Erreur lors de la récupération du planning:', error);
     res.status(500).json({ message: error.message });
@@ -183,7 +184,7 @@ app.get('/api/mobile/cours/enseignant/:enseignantId', async (req, res) => {
       'enseignants.id': enseignantId,
       semaine: parseInt(semaine),
       annee: parseInt(annee)
-    }).populate('classe matiere salle');
+    }).populate('classe matiere salle uhr');
     
     console.log(`Retour de ${cours.length} cours pour cet enseignant`);
     res.json(cours);
@@ -219,10 +220,10 @@ app.get('/api/mobile/surveillances/enseignant/:enseignantId', async (req, res) =
     
     // Rechercher les surveillances de l'enseignant
     const surveillances = await Surveillance.find({
-      enseignantId: enseignantId,
+      enseignant: enseignantId,
       semaine: parseInt(semaine),
       annee: parseInt(annee)
-    }).populate('classe salle uhr');
+    }).populate('enseignant uhr');
     
     console.log(`Retour de ${surveillances.length} surveillances pour cet enseignant`);
     res.json(surveillances);
