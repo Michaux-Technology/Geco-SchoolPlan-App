@@ -51,7 +51,30 @@ const SettingsScreen = ({ navigation, route }) => {
         }),
       });
 
-      const data = await response.json();
+      console.log('Réponse du serveur:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      // Lire le contenu de la réponse pour le débogage
+      const responseText = await response.text();
+      console.log('Contenu de la réponse:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erreur de parsing JSON:', parseError);
+        Alert.alert(
+          'Erreur de parsing',
+          `Le serveur a retourné du contenu non-JSON.\n\n` +
+          `Status: ${response.status}\n` +
+          `Contenu reçu: ${responseText.substring(0, 200)}...\n\n` +
+          `Erreur: ${parseError.message}`
+        );
+        return;
+      }
 
       if (response.ok) {
         const schoolData = {
@@ -146,14 +169,27 @@ const SettingsScreen = ({ navigation, route }) => {
       // Test du serveur principal
       const startTime = Date.now();
       const statusUrl = `${cleanUrl}/api/mobile/status`;
+      console.log('Test de l\'endpoint status:', statusUrl);
+      
       const baseResponse = await fetch(statusUrl, {
         method: 'GET',
         signal: controller.signal,
         headers: {
-          'Accept': '*/*',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
           'Cache-Control': 'no-cache'
         }
       });
+
+      console.log('Réponse du serveur status:', {
+        status: baseResponse.status,
+        statusText: baseResponse.statusText,
+        headers: Object.fromEntries(baseResponse.headers.entries())
+      });
+
+      // Lire le contenu de la réponse pour le débogage
+      const statusText = await baseResponse.text();
+      console.log('Contenu de la réponse status:', statusText);
 
       // Test de l'endpoint login avec POST
       const loginUrl = `${cleanUrl}/api/mobile/login`;
@@ -171,6 +207,12 @@ const SettingsScreen = ({ navigation, route }) => {
         })
       });
 
+      console.log('Réponse du serveur login:', {
+        status: loginResponse.status,
+        statusText: loginResponse.statusText,
+        headers: Object.fromEntries(loginResponse.headers.entries())
+      });
+
       clearTimeout(timeoutId);
       const endTime = Date.now();
 
@@ -185,14 +227,35 @@ const SettingsScreen = ({ navigation, route }) => {
       message += `Status : ${loginResponse.status}\n`;
 
       // Vérification de la réponse de login
-      const loginData = await loginResponse.json();
-      if (loginResponse.status === 200 && loginData.token) {
-        message += `\n✅ Authentification réussie !\n`;
-        message += `Role : ${loginData.user?.role || 'non spécifié'}\n`;
-        Alert.alert('Test réussi', message);
-      } else {
-        message += `\n❌ Échec de l'authentification\n`;
-        message += `Message : ${loginData.message || 'Erreur inconnue'}\n`;
+      try {
+        const loginText = await loginResponse.text();
+        console.log('Contenu de la réponse login:', loginText);
+        
+        let loginData;
+        try {
+          loginData = JSON.parse(loginText);
+        } catch (parseError) {
+          console.error('Erreur de parsing JSON:', parseError);
+          message += `\n❌ Erreur de parsing JSON\n`;
+          message += `Contenu reçu: ${loginText.substring(0, 200)}...\n`;
+          message += `Erreur: ${parseError.message}\n`;
+          Alert.alert('Échec du test', message);
+          return;
+        }
+
+        if (loginResponse.status === 200 && loginData.token) {
+          message += `\n✅ Authentification réussie !\n`;
+          message += `Role : ${loginData.user?.role || 'non spécifié'}\n`;
+          Alert.alert('Test réussi', message);
+        } else {
+          message += `\n❌ Échec de l'authentification\n`;
+          message += `Message : ${loginData.message || 'Erreur inconnue'}\n`;
+          Alert.alert('Échec du test', message);
+        }
+      } catch (readError) {
+        console.error('Erreur lors de la lecture de la réponse:', readError);
+        message += `\n❌ Erreur lors de la lecture de la réponse\n`;
+        message += `Erreur: ${readError.message}\n`;
         Alert.alert('Échec du test', message);
       }
 

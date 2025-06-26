@@ -1,22 +1,24 @@
 {
-  "name": "backend",
+  "name": "geco-schoolplan-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "mobile-api.js",
+  "description": "Backend pour l'application Geco-SchoolPlan",
+  "main": "server.js",
   "scripts": {
-    "start": "node mobile-api.js",
-    "dev": "nodemon mobile-api.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.0",
-    "mongoose": "^7.0.3",
-    "ws": "^8.13.0"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "nodemon": "^3.0.2"
   }
-} 
+}

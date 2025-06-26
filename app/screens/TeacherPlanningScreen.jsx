@@ -454,18 +454,25 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const loadSurveillances = async () => {
     try {
+      console.log('🔍 Début de loadSurveillances');
+      console.log('🔍 Token:', school?.token ? 'présent' : 'manquant');
+      console.log('🔍 Paramètres:', { requestedWeek, requestedYear, teacherId: teacher._id });
+
       if (!school?.token) {
         throw new Error('Token d\'authentification manquant');
       }
 
       // Vérifier que les paramètres sont définis
       if (!requestedWeek || !requestedYear) {
+        console.log('❌ Paramètres manquants pour loadSurveillances');
         return;
       }
 
       const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
       // Utiliser l'ID de l'enseignant
       const apiUrl = `${baseUrl}/api/mobile/surveillances/enseignant/${teacher._id}?semaine=${requestedWeek}&annee=${requestedYear}`;
+      
+      console.log('🔍 URL de l\'API surveillances:', apiUrl);
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -476,12 +483,23 @@ const TeacherPlanningScreen = ({ route }) => {
         },
       });
 
+      console.log('🔍 Réponse du serveur surveillances:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ Erreur serveur surveillances:', errorText);
         throw new Error(`Erreur ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('🔍 Données surveillances reçues:', {
+        nombreSurveillances: data.length,
+        surveillances: data
+      });
       
       // Filtrer les surveillances pour la semaine demandée
       const filteredSurveillances = data.filter(surveillance => 
@@ -489,8 +507,14 @@ const TeacherPlanningScreen = ({ route }) => {
         surveillance.annee === requestedYear
       );
       
+      console.log('🔍 Surveillances filtrées:', {
+        nombreSurveillancesFiltrees: filteredSurveillances.length,
+        surveillancesFiltrees: filteredSurveillances
+      });
+      
       setSurveillances(filteredSurveillances);
     } catch (err) {
+      console.error('❌ Erreur dans loadSurveillances:', err);
       // On ne met pas d'erreur dans l'état pour ne pas bloquer l'affichage du planning
     }
   };
@@ -631,20 +655,56 @@ const TeacherPlanningScreen = ({ route }) => {
     
     const jourComplet = joursComplets[day];
     
+    console.log('🔍 getSurveillancesByDayAndHour:', {
+      day,
+      jourComplet,
+      hour,
+      surveillancesLength: Array.isArray(surveillances) ? surveillances.length : 'non-array',
+      teacherId: teacher._id
+    });
+    
     // Vérifier que surveillances est un tableau avant d'utiliser filter
     if (!Array.isArray(surveillances)) {
+      console.log('❌ surveillances n\'est pas un tableau');
       return [];
     }
     
     // Ne récupérer que les surveillances de type 'normal' (pas 'entre_creneaux') pour cet enseignant
-    const result = surveillances.filter(surveillance => 
-      surveillance.jour === jourComplet && 
-      surveillance.type === 'normal' &&
-      (surveillance.enseignant === teacher._id || 
-       surveillance.enseignant === teacher._id.toString() ||
-       (surveillance.enseignant && surveillance.enseignant._id === teacher._id)) &&
-      `${surveillance.uhr.start} - ${surveillance.uhr.ende}` === hour
-    );
+    const result = surveillances.filter(surveillance => {
+      const matchJour = surveillance.jour === jourComplet;
+      const matchType = surveillance.type === 'normal';
+      const matchEnseignant = surveillance.enseignant === teacher._id || 
+                              surveillance.enseignant === teacher._id.toString() ||
+                              (surveillance.enseignant && surveillance.enseignant._id === teacher._id);
+      
+      // Vérifier que uhr existe et a les bonnes propriétés
+      let matchHeure = false;
+      if (surveillance.uhr && surveillance.uhr.start && surveillance.uhr.ende) {
+        const surveillanceHeure = `${surveillance.uhr.start} - ${surveillance.uhr.ende}`;
+        matchHeure = surveillanceHeure === hour;
+      }
+      
+      console.log('🔍 Filtrage surveillance:', {
+        surveillanceId: surveillance._id,
+        surveillanceJour: surveillance.jour,
+        surveillanceType: surveillance.type,
+        surveillanceEnseignant: surveillance.enseignant,
+        surveillanceUhr: surveillance.uhr,
+        surveillanceHeure: surveillance.uhr ? `${surveillance.uhr.start} - ${surveillance.uhr.ende}` : 'pas d\'heure',
+        matchJour,
+        matchType,
+        matchEnseignant,
+        matchHeure,
+        match: matchJour && matchType && matchEnseignant && matchHeure
+      });
+      
+      return matchJour && matchType && matchEnseignant && matchHeure;
+    });
+    
+    console.log('🔍 Résultat getSurveillancesByDayAndHour:', {
+      nombreResultats: result.length,
+      resultats: result
+    });
     
     return result;
   };

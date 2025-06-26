@@ -4,32 +4,35 @@ const salleSchema = new mongoose.Schema({
   nom: {
     type: String,
     required: true,
-    unique: true
-  },
-  type: {
-    type: String,
-    required: true
+    trim: true
   },
   capacite: {
     type: Number,
-    required: false
+    required: true,
+    min: 1
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  description: {
+    type: String,
+    trim: true
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  type: {
+    type: String,
+    enum: [
+      'Bibliothèque',
+      'Gymnase',
+      'Laboratoire',
+      'Salle d\'art',
+      'Salle de classe',
+      'Salle de langue Etrangère',
+      'Salle de musique',
+      'Salle de sport',
+      'Salle informatique',
+      'Autre'
+    ],
+    default: 'Salle de classe'
   }
+}, {
+  timestamps: true
 });
 
-// Middleware pour mettre à jour la date de modification
-salleSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-const Salle = mongoose.model('Salle', salleSchema);
-
-module.exports = Salle; 
+module.exports = mongoose.model('Salle', salleSchema); 

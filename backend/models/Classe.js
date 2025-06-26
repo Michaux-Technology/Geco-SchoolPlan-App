@@ -4,28 +4,24 @@ const classeSchema = new mongoose.Schema({
   nom: {
     type: String,
     required: true,
-    unique: true
+    trim: true
   },
   niveau: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  description: {
+    type: String,
+    trim: true
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  nombreEleves: {
+    type: Number,
+    required: true,
+    min: 0
   }
+}, {
+  timestamps: true
 });
 
-// Middleware pour mettre à jour la date de modification
-classeSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-const Classe = mongoose.model('Classe', classeSchema);
-
-module.exports = Classe; 
+module.exports = mongoose.model('Classe', classeSchema); 
