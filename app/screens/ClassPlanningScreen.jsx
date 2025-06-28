@@ -594,22 +594,16 @@ const ClassPlanningScreen = ({ route }) => {
           setModalVisible(true);
         }}
       >
-        {/* Icône de commentaire positionnée en haut à droite */}
-        {coursItem.commentaire && coursItem.commentaire.trim() !== '' && (
-          <MaterialIcons 
-            name="comment" 
-            size={12} 
-            color="#666666" 
-            style={styles.commentIcon}
-          />
-        )}
-        
         <View style={styles.coursHeader}>
-          <Text style={[
-            styles.coursMatiere,
-            coursItem.annule && styles.coursAnnuleText,
-            coursItem.remplace && styles.coursRemplacementText
-          ]}>
+          <Text 
+            style={[
+              styles.coursMatiere,
+              coursItem.annule && styles.coursAnnuleText,
+              coursItem.remplace && styles.coursRemplacementText
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {abrevierMatiere(coursItem.matiere)}
           </Text>
         </View>
@@ -619,9 +613,19 @@ const ClassPlanningScreen = ({ route }) => {
             : 'Enseignant non défini'
           }
         </Text>
-        <Text style={styles.coursSalle}>
-          {coursItem.salle || 'Salle non définie'}
-        </Text>
+        <View style={styles.classeContainer}>
+          <Text style={styles.coursSalle}>
+            {coursItem.salle || 'Salle non définie'}
+          </Text>
+          {coursItem.commentaire && coursItem.commentaire.trim() !== '' && (
+            <MaterialIcons 
+              name="comment" 
+              size={12} 
+              color="#666666" 
+              style={styles.commentIconInline}
+            />
+          )}
+        </View>
         {coursItem.remplace && coursItem.remplacementInfo && (
           <Text style={styles.remplacementInfo}>
             {coursItem.remplacementInfo}
@@ -1003,7 +1007,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#1976D2',
-    overflow: 'hidden',
+    numberOfLines: 1,
+    ellipsizeMode: 'tail',
     flex: 1
   },
   coursClasse: {
@@ -1170,6 +1175,14 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+  classeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  commentIconInline: {
+    marginLeft: 5,
   },
 });
 

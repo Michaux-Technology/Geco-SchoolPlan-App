@@ -727,67 +727,69 @@ const TeacherPlanningScreen = ({ route }) => {
     );
   };
 
-  const abrevierMatiere = (matiere) => {
-    return matiere.length > 5 ? matiere.substring(0, 5) + '.' : matiere;
-  };
-
   const renderCours = (cours) => {
     if (!cours || cours.length === 0) return null;
 
     return cours.map((item, index) => (
-      <TouchableOpacity 
-        key={index} 
-        style={[
-          styles.coursItem,
-          item.annule && styles.coursAnnule,
-          item.remplace && styles.coursRemplacement
-        ]}
-        onPress={() => {
-          setSelectedCours(item);
-          setModalVisible(true);
-        }}
-      >
-        {/* Icône de commentaire positionnée en haut à droite */}
-        {item.commentaire && item.commentaire.trim() !== '' && (
-          <MaterialIcons 
-            name="comment" 
-            size={12} 
-            color="#666666" 
-            style={styles.commentIcon}
-          />
-        )}
-        
-        <View style={styles.coursHeader}>
+      <View key={index}>
+        <TouchableOpacity 
+          style={[
+            styles.coursItem,
+            item.annule && styles.coursAnnule,
+            item.remplace && styles.coursRemplacement
+          ]}
+          onPress={() => {
+            setSelectedCours(item);
+            setModalVisible(true);
+          }}
+        >
+          <View style={styles.coursHeader}>
+            <Text 
+              style={[
+                styles.coursMatiere,
+                item.annule && styles.coursAnnuleText,
+                item.remplace && styles.coursRemplacementText
+              ]} 
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {item.matiere}
+              {item.annule && ' (Annulé)'}
+              {item.remplace && ' (Remplacé)'}
+            </Text>
+          </View>
           <Text style={[
-            styles.coursMatiere,
+            styles.coursClasse,
             item.annule && styles.coursAnnuleText,
             item.remplace && styles.coursRemplacementText
           ]} numberOfLines={1}>
-            {abrevierMatiere(item.matiere)}
-            {item.annule && ' (Annulé)'}
-            {item.remplace && ' (Remplacé)'}
+            {item.classe}
           </Text>
-        </View>
-        <Text style={[
-          styles.coursClasse,
-          item.annule && styles.coursAnnuleText,
-          item.remplace && styles.coursRemplacementText
-        ]} numberOfLines={1}>
-          {item.classe}
-        </Text>
-        <Text style={[
-          styles.coursSalle,
-          item.annule && styles.coursAnnuleText,
-          item.remplace && styles.coursRemplacementText
-        ]} numberOfLines={1}>
-          {item.salle}
-        </Text>
-        {item.remplace && item.remplacementInfo && (
-          <Text style={styles.remplacementInfo} numberOfLines={1}>
-            {item.remplacementInfo}
-          </Text>
-        )}
-      </TouchableOpacity>
+          <View style={styles.salleContainer}>
+            <Text style={[
+              styles.coursSalle,
+              item.annule && styles.coursAnnuleText,
+              item.remplace && styles.coursRemplacementText
+            ]} numberOfLines={1}>
+              {item.salle}
+            </Text>
+            {item.commentaire && item.commentaire.trim() !== '' && (
+              <MaterialIcons 
+                name="comment" 
+                size={12} 
+                color="#666666" 
+                style={styles.commentIconInline}
+              />
+            )}
+          </View>
+          {item.remplace && item.remplacementInfo && (
+            <Text style={styles.remplacementInfo} numberOfLines={1}>
+              {item.remplacementInfo}
+            </Text>
+          )}
+        </TouchableOpacity>
+        {index < cours.length - 1 && <View style={styles.coursSeparator} />}
+      </View>
     ));
   };
 
@@ -1287,24 +1289,27 @@ const styles = StyleSheet.create({
   },
   coursHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   coursMatiere: {
     fontSize: 12,
     fontWeight: '600',
     color: '#1976D2',
-    overflow: 'hidden',
+    numberOfLines: 1,
+    ellipsizeMode: 'tail',
     flex: 1
   },
   coursClasse: {
     fontSize: 11,
     color: '#666666',
+    textAlign: 'left',
     overflow: 'hidden'
   },
   coursSalle: {
     fontSize: 11,
     color: '#666666',
     fontStyle: 'italic',
+    textAlign: 'left',
     overflow: 'hidden'
   },
   loadingText: {
@@ -1521,6 +1526,18 @@ const styles = StyleSheet.create({
   },
   surveillanceCellLast: {
     marginRight: 0,
+  },
+  commentIconInline: {
+    marginLeft: 5,
+  },
+  salleContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  coursSeparator: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
   },
 });
 
