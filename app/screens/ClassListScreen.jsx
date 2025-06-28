@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Platform, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 const ClassListScreen = ({ route }) => {
   const { school } = route.params;
@@ -10,6 +11,7 @@ const ClassListScreen = ({ route }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [favorites, setFavorites] = useState(new Set());
+  const navigation = useNavigation();
 
   const sortClassesByFavorites = (classesList, favoritesSet) => {
     return [...classesList].sort((a, b) => {
@@ -131,12 +133,35 @@ const ClassListScreen = ({ route }) => {
     const isFavorite = favorites.has(item._id || item.id);
     
     return (
-      <View style={styles.classItem}>
+      <TouchableOpacity 
+        style={styles.classItem}
+        onPress={() => {
+          console.log('🎯 Clic sur la classe:', item.nom);
+          console.log('🎯 Paramètres de navigation:', {
+            school: school,
+            classe: item
+          });
+          try {
+            navigation.navigate('ClassPlanning', {
+              school: school,
+              classe: item
+            });
+            console.log('✅ Navigation réussie vers ClassPlanning');
+          } catch (error) {
+            console.error('❌ Erreur lors de la navigation:', error);
+          }
+        }}
+        activeOpacity={0.7}
+      >
         <View style={styles.classInfo}>
           <View style={styles.classHeader}>
             <Text style={styles.className}>{item.nom}</Text>
             <TouchableOpacity
-              onPress={() => toggleFavorite(item._id || item.id)}
+              onPress={(e) => {
+                e.stopPropagation(); // Empêcher la navigation
+                console.log('⭐ Toggle favori pour:', item.nom);
+                toggleFavorite(item._id || item.id);
+              }}
               style={styles.favoriteButton}
             >
               <MaterialIcons
@@ -147,7 +172,7 @@ const ClassListScreen = ({ route }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

@@ -3,13 +3,20 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, 
 import { MaterialIcons } from '@expo/vector-icons';
 import { io } from 'socket.io-client';
 
-const TeacherPlanningScreen = ({ route }) => {
-  const { school, teacher } = route.params;
+const ClassPlanningScreen = ({ route }) => {
+  console.log('🚀 ClassPlanningScreen - Paramètres reçus:', route.params);
+  const { school, classe } = route.params;
+  console.log('🚀 ClassPlanningScreen - school:', school?.apiUrl);
+  console.log('🚀 ClassPlanningScreen - classe:', classe);
+  
+  // Extraire le nom de la classe (peut être un string ou un objet)
+  const classeNom = typeof classe === 'string' ? classe : classe.nom;
+  console.log('🚀 ClassPlanningScreen - classeNom:', classeNom);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [planning, setPlanning] = useState([]);
-  const [surveillances, setSurveillances] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(null);
   const [currentYear, setCurrentYear] = useState(null);
   const [requestedWeek, setRequestedWeek] = useState(null);
@@ -113,9 +120,6 @@ const TeacherPlanningScreen = ({ route }) => {
         }
       }
       
-      // Charger les surveillances pour la semaine demandée
-      loadSurveillances();
-      
       // Charger les annotations pour la semaine demandée
       loadAnnotations();
     } else {
@@ -131,7 +135,8 @@ const TeacherPlanningScreen = ({ route }) => {
   const connectSocket = () => {
     console.log('🔌 Début de connectSocket()');
     console.log('🔌 school.apiUrl:', school.apiUrl);
-    console.log('🔌 teacher._id:', teacher._id);
+    console.log('🔌 classe:', classe);
+    console.log('🔌 classeNom:', classeNom);
     
     const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
     // Corriger l'URL WebSocket
@@ -165,10 +170,10 @@ const TeacherPlanningScreen = ({ route }) => {
         setWsConnected(true);
         setError(null);
         
-        // S'abonner aux mises à jour du planning
-        console.log('📡 Envoi de l\'abonnement pour l\'enseignant:', teacher._id);
+        // S'abonner aux mises à jour du planning pour cette classe
+        console.log('📡 Envoi de l\'abonnement pour la classe:', classeNom);
         newSocket.emit('subscribe', {
-          enseignantId: teacher._id
+          classeId: classeNom
         });
         console.log('✅ Abonnement envoyé');
       });
@@ -182,11 +187,9 @@ const TeacherPlanningScreen = ({ route }) => {
         console.log('🔄 Mise à jour du planning reçue via WebSocket:', {
           hasPlanning: Boolean(data.planning),
           hasCours: Boolean(data.cours),
-          hasSurveillances: Boolean(data.surveillances),
           hasUhrs: Boolean(data.uhrs),
           planningLength: data.planning?.length,
           coursLength: data.cours?.length,
-          surveillancesLength: data.surveillances?.length,
           uhrsLength: data.uhrs?.length,
           currentWeek: data.currentWeek,
           currentYear: data.currentYear,
@@ -198,86 +201,29 @@ const TeacherPlanningScreen = ({ route }) => {
         
         // Mettre à jour les données de planning
         if (data.cours && Array.isArray(data.cours)) {
-          // Données reçues au format {cours: [...], surveillances: [...], uhrs: [...]}
           console.log('📚 Cours reçus via WebSocket:', data.cours.length);
           
-          // Si le backend a envoyé la semaine/année, les utiliser
-          const weekToUse = data.currentWeek || requestedWeek || currentWeek;
-          const yearToUse = data.currentYear || requestedYear || currentYear;
-          
-          console.log('📅 Utilisation des paramètres:', {
-            weekToUse,
-            yearToUse,
-            dataCurrentWeek: data.currentWeek,
-            dataCurrentYear: data.currentYear,
-            requestedWeek,
-            requestedYear,
-            currentWeek,
-            currentYear
+          // Filtrer les cours pour la classe actuelle
+          const filteredCours = data.cours.filter(cours => cours.classe === classeNom);
+          console.log('📅 Cours filtrés pour la classe:', {
+            classe: classeNom,
+            nombreCours: filteredCours.length
           });
           
-          if (weekToUse && yearToUse) {
-            // Filtrer les cours pour la semaine demandée
-            const filteredPlanning = data.cours.filter(cours => 
-              cours.semaine === weekToUse && 
-              cours.annee === yearToUse
-            );
-            console.log('📅 Planning filtré pour la semaine:', {
-              semaineDemandee: weekToUse,
-              anneeDemandee: yearToUse,
-              nombreCours: filteredPlanning.length,
-              totalCoursRecus: data.cours.length
-            });
-            setPlanning(filteredPlanning);
-          } else {
-            // Si aucune semaine n'est définie, stocker tous les cours
-            console.log('📅 Aucune semaine définie, stockage de tous les cours:', data.cours.length);
-            setPlanning(data.cours);
-          }
-        } else if (data.planning) {
-          // Ancien format pour compatibilité
-          console.log('📚 Planning reçu au format legacy:', data.planning.length);
+          setPlanning(filteredCours);
+        } else if (data.planning && Array.isArray(data.planning)) {
+          console.log('📚 Planning reçu via WebSocket:', data.planning.length);
           
-          // Extraire le tableau de cours selon la structure reçue
-          let coursArray = [];
-          if (Array.isArray(data.planning)) {
-            coursArray = data.planning;
-          } else if (data.planning.cours && Array.isArray(data.planning.cours)) {
-            coursArray = data.planning.cours;
-          }
+          // Filtrer le planning pour la classe actuelle
+          const filteredPlanning = data.planning.filter(cours => cours.classe === classeNom);
+          console.log('📅 Planning filtré pour la classe:', {
+            classe: classeNom,
+            nombreCours: filteredPlanning.length
+          });
           
-          if (coursArray.length > 0) {
-            // Si requestedWeek et requestedYear ne sont pas encore initialisés,
-            // utiliser la semaine actuelle par défaut
-            const weekToUse = requestedWeek || currentWeek;
-            const yearToUse = requestedYear || currentYear;
-            
-            if (weekToUse && yearToUse) {
-              // Filtrer les cours pour la semaine demandée
-              const filteredPlanning = coursArray.filter(cours => 
-                cours.semaine === weekToUse && 
-                cours.annee === yearToUse
-              );
-              console.log('📅 Planning filtré (legacy):', {
-                semaineDemandee: weekToUse,
-                anneeDemandee: yearToUse,
-                nombreCours: filteredPlanning.length
-              });
-              setPlanning(filteredPlanning);
-            } else {
-              // Si aucune semaine n'est définie, stocker tous les cours
-              console.log('📅 Aucune semaine définie (legacy), stockage de tous les cours:', coursArray.length);
-              setPlanning(coursArray);
-            }
-          }
+          setPlanning(filteredPlanning);
         }
-        
-        // Mettre à jour les surveillances
-        if (data.surveillances && Array.isArray(data.surveillances)) {
-          console.log('👁️ Surveillances reçues via WebSocket:', data.surveillances.length);
-          setSurveillances(data.surveillances);
-        }
-        
+
         // Mettre à jour les créneaux horaires
         if (data.uhrs && Array.isArray(data.uhrs)) {
           const formattedTimeSlots = data.uhrs.map(slot => ({
@@ -329,6 +275,14 @@ const TeacherPlanningScreen = ({ route }) => {
         if (Array.isArray(data)) {
           console.log('📚 Cours reçus via coursUpdate:', data.length);
           
+          // Filtrer les cours pour la classe actuelle
+          const filteredCours = data.filter(cours => cours.classe === classeNom);
+          console.log('📅 Cours filtrés pour la classe (coursUpdate):', {
+            classe: classeNom,
+            nombreCours: filteredCours.length,
+            totalCoursRecus: data.length
+          });
+          
           // Si requestedWeek et requestedYear ne sont pas encore initialisés,
           // utiliser la semaine actuelle par défaut
           const weekToUse = requestedWeek || currentWeek;
@@ -336,21 +290,21 @@ const TeacherPlanningScreen = ({ route }) => {
           
           if (weekToUse && yearToUse) {
             // Filtrer les cours pour la semaine demandée
-            const filteredPlanning = data.filter(cours => 
+            const filteredPlanning = filteredCours.filter(cours => 
               cours.semaine === weekToUse && 
               cours.annee === yearToUse
             );
             console.log('📅 Planning filtré (coursUpdate):', {
+              classe: classeNom,
               semaineDemandee: weekToUse,
               anneeDemandee: yearToUse,
-              nombreCours: filteredPlanning.length,
-              totalCoursRecus: data.length
+              nombreCours: filteredPlanning.length
             });
             setPlanning(filteredPlanning);
           } else {
-            // Si aucune semaine n'est définie, stocker tous les cours
-            console.log('📅 Aucune semaine définie (coursUpdate), stockage de tous les cours:', data.length);
-            setPlanning(data);
+            // Si aucune semaine n'est définie, stocker tous les cours filtrés
+            console.log('📅 Aucune semaine définie (coursUpdate), stockage de tous les cours filtrés:', filteredCours.length);
+            setPlanning(filteredCours);
           }
         }
         
@@ -452,73 +406,6 @@ const TeacherPlanningScreen = ({ route }) => {
     }
   };
 
-  const loadSurveillances = async () => {
-    try {
-      console.log('🔍 Début de loadSurveillances');
-      console.log('🔍 Token:', school?.token ? 'présent' : 'manquant');
-      console.log('🔍 Paramètres:', { requestedWeek, requestedYear, teacherId: teacher._id });
-
-      if (!school?.token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      // Vérifier que les paramètres sont définis
-      if (!requestedWeek || !requestedYear) {
-        console.log('❌ Paramètres manquants pour loadSurveillances');
-        return;
-      }
-
-      const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      // Utiliser l'ID de l'enseignant
-      const apiUrl = `${baseUrl}/api/mobile/surveillances/enseignant/${teacher._id}?semaine=${requestedWeek}&annee=${requestedYear}`;
-      
-      console.log('🔍 URL de l\'API surveillances:', apiUrl);
-
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${school.token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('🔍 Réponse du serveur surveillances:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Erreur serveur surveillances:', errorText);
-        throw new Error(`Erreur ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('🔍 Données surveillances reçues:', {
-        nombreSurveillances: data.length,
-        surveillances: data
-      });
-      
-      // Filtrer les surveillances pour la semaine demandée
-      const filteredSurveillances = data.filter(surveillance => 
-        surveillance.semaine === requestedWeek && 
-        surveillance.annee === requestedYear
-      );
-      
-      console.log('🔍 Surveillances filtrées:', {
-        nombreSurveillancesFiltrees: filteredSurveillances.length,
-        surveillancesFiltrees: filteredSurveillances
-      });
-      
-      setSurveillances(filteredSurveillances);
-    } catch (err) {
-      console.error('❌ Erreur dans loadSurveillances:', err);
-      // On ne met pas d'erreur dans l'état pour ne pas bloquer l'affichage du planning
-    }
-  };
-
   const loadAnnotations = () => {
     if (socket && (requestedWeek || currentWeek) && (requestedYear || currentYear)) {
       const semaine = requestedWeek || currentWeek;
@@ -543,7 +430,14 @@ const TeacherPlanningScreen = ({ route }) => {
       }
 
       const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      const apiUrl = `${baseUrl}/api/mobile/cours/enseignant/${teacher._id}?semaine=${requestedWeek}&annee=${requestedYear}`;
+      const apiUrl = `${baseUrl}/api/mobile/planning/classe/${classeNom}?semaine=${requestedWeek}&annee=${requestedYear}`;
+
+      console.log('📡 Chargement du planning pour la classe:', {
+        classe: classeNom,
+        apiUrl: apiUrl,
+        semaine: requestedWeek,
+        annee: requestedYear
+      });
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -561,8 +455,15 @@ const TeacherPlanningScreen = ({ route }) => {
 
       const data = await response.json();
       
-      if (data.length > 0) {
-        const firstEntry = data[0];
+      console.log('📚 Données reçues du serveur:', {
+        nombreCours: data.cours?.length || 0,
+        nombreUhrs: data.uhrs?.length || 0,
+        cours: data.cours,
+        uhrs: data.uhrs
+      });
+      
+      if (data.cours && data.cours.length > 0) {
+        const firstEntry = data.cours[0];
         
         // Si le serveur renvoie toujours la semaine 18, on garde la semaine demandée
         if (firstEntry.semaine === 18) {
@@ -574,10 +475,17 @@ const TeacherPlanningScreen = ({ route }) => {
         }
       }
       
-      setPlanning(data);
+      setPlanning(data.cours || []);
       
-      // Charger les surveillances après le planning
-      await loadSurveillances();
+      // Mettre à jour les créneaux horaires si disponibles
+      if (data.uhrs && Array.isArray(data.uhrs)) {
+        const formattedTimeSlots = data.uhrs.map(slot => ({
+          _id: slot._id,
+          debut: slot.start,
+          fin: slot.ende
+        }));
+        setTimeSlots(formattedTimeSlots);
+      }
       
     } catch (err) {
       setError(err.message || 'Erreur lors du chargement du planning');
@@ -612,7 +520,6 @@ const TeacherPlanningScreen = ({ route }) => {
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     loadPlanning();
-    loadSurveillances();
   }, []);
 
   const getCoursByDayAndHour = (day, hour) => {
@@ -643,112 +550,52 @@ const TeacherPlanningScreen = ({ route }) => {
     );
   };
 
-  const getSurveillancesByDayAndHour = (day, hour) => {
-    // Convertir le jour abrégé en jour complet
-    const joursComplets = {
-      'Lun.': 'Lundi',
-      'Mar.': 'Mardi',
-      'Mer.': 'Mercredi',
-      'Jeu.': 'Jeudi',
-      'Ven.': 'Vendredi'
-    };
-    
-    const jourComplet = joursComplets[day];
-    
-    console.log('🔍 getSurveillancesByDayAndHour:', {
-      day,
-      jourComplet,
-      hour,
-      surveillancesLength: Array.isArray(surveillances) ? surveillances.length : 'non-array',
-      teacherId: teacher._id
-    });
-    
-    // Vérifier que surveillances est un tableau avant d'utiliser filter
-    if (!Array.isArray(surveillances)) {
-      console.log('❌ surveillances n\'est pas un tableau');
-      return [];
-    }
-    
-    // Ne récupérer que les surveillances de type 'normal' (pas 'entre_creneaux') pour cet enseignant
-    const result = surveillances.filter(surveillance => {
-      const matchJour = surveillance.jour === jourComplet;
-      const matchType = surveillance.type === 'normal';
-      const matchEnseignant = surveillance.enseignant === teacher._id || 
-                              surveillance.enseignant === teacher._id.toString() ||
-                              (surveillance.enseignant && surveillance.enseignant._id === teacher._id);
-      
-      // Vérifier que uhr existe et a les bonnes propriétés
-      let matchHeure = false;
-      if (surveillance.uhr && surveillance.uhr.start && surveillance.uhr.ende) {
-        const surveillanceHeure = `${surveillance.uhr.start} - ${surveillance.uhr.ende}`;
-        matchHeure = surveillanceHeure === hour;
-      }
-      
-      console.log('🔍 Filtrage surveillance:', {
-        surveillanceId: surveillance._id,
-        surveillanceJour: surveillance.jour,
-        surveillanceType: surveillance.type,
-        surveillanceEnseignant: surveillance.enseignant,
-        surveillanceUhr: surveillance.uhr,
-        surveillanceHeure: surveillance.uhr ? `${surveillance.uhr.start} - ${surveillance.uhr.ende}` : 'pas d\'heure',
-        matchJour,
-        matchType,
-        matchEnseignant,
-        matchHeure,
-        match: matchJour && matchType && matchEnseignant && matchHeure
-      });
-      
-      return matchJour && matchType && matchEnseignant && matchHeure;
-    });
-    
-    console.log('🔍 Résultat getSurveillancesByDayAndHour:', {
-      nombreResultats: result.length,
-      resultats: result
-    });
-    
-    return result;
-  };
-
   const formatHours = (timeRange) => {
     const [start, end] = timeRange.split(' - ');
     return {
-      start,
-      end
+      start: start,
+      end: end
     };
   };
 
   const renderTimeCell = (timeSlot) => {
     return (
       <View style={[styles.timeCell, { width: 45 }]}>
-        <Text style={styles.timeTextStart}>{timeSlot.debut}</Text>
+        <Text style={styles.timeTextStart}>
+          {timeSlot.debut}
+        </Text>
         <View style={styles.timeSeparator} />
-        <Text style={styles.timeTextEnd}>{timeSlot.fin}</Text>
+        <Text style={styles.timeTextEnd}>
+          {timeSlot.fin}
+        </Text>
       </View>
     );
   };
 
   const abrevierMatiere = (matiere) => {
-    return matiere.length > 5 ? matiere.substring(0, 5) + '.' : matiere;
+    if (!matiere) return '';
+    return matiere.length > 8 ? matiere.substring(0, 8) + '...' : matiere;
   };
 
   const renderCours = (cours) => {
     if (!cours || cours.length === 0) return null;
 
-    return cours.map((item, index) => (
-      <TouchableOpacity 
-        key={index} 
+    const coursItem = cours[0]; // Prendre le premier cours s'il y en a plusieurs
+    
+    return (
+      <TouchableOpacity
         style={[
           styles.coursItem,
-          item.annule && styles.coursAnnule,
-          item.remplace && styles.coursRemplacement
+          coursItem.annule && styles.coursAnnule,
+          coursItem.remplace && styles.coursRemplacement
         ]}
         onPress={() => {
-          setSelectedCours(item);
+          setSelectedCours(coursItem);
           setModalVisible(true);
         }}
       >
         {/* Icône de commentaire positionnée en haut à droite */}
-        {item.commentaire && item.commentaire.trim() !== '' && (
+        {coursItem.commentaire && coursItem.commentaire.trim() !== '' && (
           <MaterialIcons 
             name="comment" 
             size={12} 
@@ -760,104 +607,27 @@ const TeacherPlanningScreen = ({ route }) => {
         <View style={styles.coursHeader}>
           <Text style={[
             styles.coursMatiere,
-            item.annule && styles.coursAnnuleText,
-            item.remplace && styles.coursRemplacementText
-          ]} numberOfLines={1}>
-            {abrevierMatiere(item.matiere)}
-            {item.annule && ' (Annulé)'}
-            {item.remplace && ' (Remplacé)'}
+            coursItem.annule && styles.coursAnnuleText,
+            coursItem.remplace && styles.coursRemplacementText
+          ]}>
+            {abrevierMatiere(coursItem.matiere)}
           </Text>
         </View>
-        <Text style={[
-          styles.coursClasse,
-          item.annule && styles.coursAnnuleText,
-          item.remplace && styles.coursRemplacementText
-        ]} numberOfLines={1}>
-          {item.classe}
+        <Text style={styles.coursClasse}>
+          {coursItem.enseignants && coursItem.enseignants.length > 0 
+            ? coursItem.enseignants.map(e => e.nom).join(', ')
+            : 'Enseignant non défini'
+          }
         </Text>
-        <Text style={[
-          styles.coursSalle,
-          item.annule && styles.coursAnnuleText,
-          item.remplace && styles.coursRemplacementText
-        ]} numberOfLines={1}>
-          {item.salle}
+        <Text style={styles.coursSalle}>
+          {coursItem.salle || 'Salle non définie'}
         </Text>
-        {item.remplace && item.remplacementInfo && (
-          <Text style={styles.remplacementInfo} numberOfLines={1}>
-            {item.remplacementInfo}
+        {coursItem.remplace && coursItem.remplacementInfo && (
+          <Text style={styles.remplacementInfo}>
+            {coursItem.remplacementInfo}
           </Text>
         )}
       </TouchableOpacity>
-    ));
-  };
-
-  const renderSurveillance = (surveillances) => {
-    if (!surveillances || surveillances.length === 0) return null;
-
-    return (
-      <View style={styles.surveillanceItem}>
-        <Text style={styles.surveillanceText}>
-          Surveil.
-        </Text>
-      </View>
-    );
-  };
-
-  // Nouvelle fonction pour obtenir les surveillances entre créneaux pour un jour donné
-  const getSurveillancesEntreCreneaux = (day, timeSlotIndex) => {
-    // Convertir le jour abrégé en jour complet
-    const joursComplets = {
-      'Lun.': 'Lundi',
-      'Mar.': 'Mardi',
-      'Mer.': 'Mercredi',
-      'Jeu.': 'Jeudi',
-      'Ven.': 'Vendredi'
-    };
-    
-    const jourComplet = joursComplets[day];
-    
-    // Vérifier que surveillances est un tableau avant d'utiliser filter
-    if (!Array.isArray(surveillances)) {
-      return [];
-    }
-    
-    // Filtrer les surveillances pour ce jour, ce type et cet enseignant
-    const surveillancesDuJour = surveillances.filter(surveillance => 
-      surveillance.jour === jourComplet && 
-      surveillance.type === 'entre_creneaux' &&
-      (surveillance.enseignant === teacher._id || 
-       surveillance.enseignant === teacher._id.toString() ||
-       (surveillance.enseignant && surveillance.enseignant._id === teacher._id))
-    );
-    
-    // Utiliser le champ position pour déterminer où afficher la surveillance
-    // position = -1 : avant la première heure
-    // position = 0, 1, 2, etc. : entre les créneaux correspondants
-    // position = timeSlots.length - 1 : après la dernière heure
-    const result = surveillancesDuJour.filter(surveillance => {
-      const position = surveillance.position || 0;
-      return position === timeSlotIndex;
-    });
-    
-    return result;
-  };
-
-  // Nouvelle fonction pour rendre une cellule de surveillance entre créneaux
-  const renderSurveillanceEntreCreneaux = (day, timeSlotIndex) => {
-    const surveillancesEntreCreneaux = getSurveillancesEntreCreneaux(day, timeSlotIndex);
-    
-    if (!surveillancesEntreCreneaux || surveillancesEntreCreneaux.length === 0) {
-      return null;
-    }
-
-    return (
-      <View style={styles.surveillanceEntreCreneauxCell}>
-        {surveillancesEntreCreneaux[0].lieu && (
-          <Text style={styles.surveillanceLieuText}>
-            {surveillancesEntreCreneaux[0].lieu}
-          </Text>
-        )}
-      </View>
     );
   };
 
@@ -884,12 +654,10 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const renderPlanningCell = (day, timeSlot) => {
     const cours = getCoursByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`);
-    const surveillances = getSurveillancesByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`);
 
     return (
       <View style={styles.planningCell}>
         {renderCours(cours)}
-        {renderSurveillance(surveillances)}
       </View>
     );
   };
@@ -1043,89 +811,22 @@ const TeacherPlanningScreen = ({ route }) => {
 
           {/* Grille des cours */}
           {timeSlots && timeSlots.length > 0 ? (
-            <>
-              {/* Ligne des surveillances avant la première heure (position -1) */}
-              <View style={styles.surveillanceRow}>
-                <View style={styles.surveillanceTimeCell}>
-                  <Text style={styles.surveillanceTimeText}>
-                    Surveil.
-                  </Text>
-                </View>
+            timeSlots.map((timeSlot, hourIndex) => (
+              <View key={hourIndex} style={styles.timeRow}>
+                {renderTimeCell(timeSlot)}
                 {days.map((day, dayIndex) => (
                   <View 
                     key={dayIndex} 
                     style={[
-                      styles.surveillanceCell,
-                      dayIndex === days.length - 1 && styles.surveillanceCellLast
+                      styles.planningCell,
+                      dayIndex === days.length - 1 && styles.planningCellLast
                     ]}
                   >
-                    {renderSurveillanceEntreCreneaux(day, -1)}
+                    {renderPlanningCell(day, timeSlot)}
                   </View>
                 ))}
               </View>
-              
-              {timeSlots.map((timeSlot, hourIndex) => (
-                <View key={hourIndex}>
-                  {/* Ligne des créneaux horaires */}
-                  <View style={styles.timeRow}>
-                    {renderTimeCell(timeSlot)}
-                    {days.map((day, dayIndex) => (
-                      <View 
-                        key={dayIndex} 
-                        style={[
-                          styles.planningCell,
-                          dayIndex === days.length - 1 && styles.planningCellLast
-                        ]}
-                      >
-                        {renderPlanningCell(day, timeSlot)}
-                      </View>
-                    ))}
-                  </View>
-                  
-                  {/* Ligne des surveillances entre créneaux (sauf pour le dernier créneau) */}
-                  {hourIndex < timeSlots.length - 1 && (
-                    <View style={styles.surveillanceRow}>
-                      <View style={styles.surveillanceTimeCell}>
-                        <Text style={styles.surveillanceTimeText}>
-                          Surveil.
-                        </Text>
-                      </View>
-                      {days.map((day, dayIndex) => (
-                        <View 
-                          key={dayIndex} 
-                          style={[
-                            styles.surveillanceCell,
-                            dayIndex === days.length - 1 && styles.surveillanceCellLast
-                          ]}
-                        >
-                          {renderSurveillanceEntreCreneaux(day, hourIndex)}
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              ))}
-              
-              {/* Ligne des surveillances après la dernière heure */}
-              <View style={styles.surveillanceRow}>
-                <View style={styles.surveillanceTimeCell}>
-                  <Text style={styles.surveillanceTimeText}>
-                    Surveil.
-                  </Text>
-                </View>
-                {days.map((day, dayIndex) => (
-                  <View 
-                    key={dayIndex} 
-                    style={[
-                      styles.surveillanceCell,
-                      dayIndex === days.length - 1 && styles.surveillanceCellLast
-                    ]}
-                  >
-                    {renderSurveillanceEntreCreneaux(day, timeSlots.length - 1)}
-                  </View>
-                ))}
-              </View>
-            </>
+            ))
           ) : (
             <View style={styles.centerContainer}>
               <Text style={styles.errorText}>
@@ -1165,10 +866,13 @@ const TeacherPlanningScreen = ({ route }) => {
                   <Text style={styles.modalLabel}>Matière :</Text> {selectedCours.matiere}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Classe :</Text> {selectedCours.classe}
+                  <Text style={styles.modalLabel}>Enseignant :</Text> {selectedCours.enseignants && selectedCours.enseignants.length > 0 
+                    ? selectedCours.enseignants.map(e => e.nom).join(', ')
+                    : 'Non défini'
+                  }
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Salle :</Text> {selectedCours.salle}
+                  <Text style={styles.modalLabel}>Salle :</Text> {selectedCours.salle || 'Non définie'}
                 </Text>
                 <Text style={styles.modalText}>
                   <Text style={styles.modalLabel}>Jour :</Text> {selectedCours.jour}
@@ -1247,6 +951,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dayCellLast: {
+    marginRight: 0,
+  },
   planningCell: {
     flex: 1,
     minHeight: 80,
@@ -1254,6 +961,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
     padding: 0,
+  },
+  planningCellLast: {
+    marginRight: 0,
   },
   headerText: {
     fontSize: 14,
@@ -1423,68 +1133,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
   },
-  surveillanceItem: {
-    backgroundColor: '#FFF3E0',
-    borderRadius: 4,
-    padding: 4,
-    marginBottom: 2,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF9800'
-  },
-  surveillanceText: {
-    fontSize: 12,
-    color: '#E65100',
-    fontWeight: '500'
-  },
-  surveillanceRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  surveillanceTimeCell: {
-    width: 45,
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-    backgroundColor: '#FF9800',
-    borderRadius: 6,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  surveillanceTimeText: {
-    fontSize: 9,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  surveillanceCell: {
-    flex: 1,
-    minHeight: 40,
-    backgroundColor: '#FFF8E1',
-    borderRadius: 6,
-    marginRight: 8,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  surveillanceEntreCreneauxCell: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  surveillanceLieuText: {
-    fontSize: 11,
-    color: '#E65100',
-    fontStyle: 'italic',
-    marginBottom: 2,
-    fontWeight: '500',
-    textAlign: 'center'
-  },
   commentIcon: {
     position: 'absolute',
     top: 0,
     right: -5,
+    zIndex: 1,
+  },
+  commentIconAbsolute: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
     zIndex: 1,
   },
   annotationsContainer: {
@@ -1513,15 +1171,6 @@ const styles = StyleSheet.create({
   bottomSpacing: {
     height: 100,
   },
-  dayCellLast: {
-    marginRight: 0,
-  },
-  planningCellLast: {
-    marginRight: 0,
-  },
-  surveillanceCellLast: {
-    marginRight: 0,
-  },
 });
 
-export default TeacherPlanningScreen; 
+export default ClassPlanningScreen; 

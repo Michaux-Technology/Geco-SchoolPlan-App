@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Platform, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 const RoomListScreen = ({ route }) => {
   const { school } = route.params;
@@ -10,6 +11,7 @@ const RoomListScreen = ({ route }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [favorites, setFavorites] = useState(new Set());
+  const navigation = useNavigation();
 
   const sortRoomsByFavorites = (roomsList, favoritesSet) => {
     return [...roomsList].sort((a, b) => {
@@ -131,12 +133,37 @@ const RoomListScreen = ({ route }) => {
     const isFavorite = favorites.has(item._id || item.id);
     
     return (
-      <View style={styles.roomItem}>
+      <TouchableOpacity 
+        style={styles.roomItem}
+        onPress={() => {
+          console.log('🎯 Clic sur la salle:', item.nom);
+          console.log('🎯 Paramètres de navigation:', {
+            school: school,
+            salle: item
+          });
+          
+          // Navigation vers le planning de la salle
+          try {
+            navigation.navigate('RoomPlanning', {
+              school: school,
+              salle: item
+            });
+            console.log('✅ Navigation vers RoomPlanning réussie');
+          } catch (error) {
+            console.error('❌ Erreur lors de la navigation:', error);
+          }
+        }}
+        activeOpacity={0.7}
+      >
         <View style={styles.roomInfo}>
           <View style={styles.roomHeader}>
             <Text style={styles.roomName}>{item.nom}</Text>
             <TouchableOpacity
-              onPress={() => toggleFavorite(item._id || item.id)}
+              onPress={(e) => {
+                e.stopPropagation(); // Empêcher la navigation
+                console.log('⭐ Clic sur favori pour:', item.nom);
+                toggleFavorite(item._id || item.id);
+              }}
               style={styles.favoriteButton}
             >
               <MaterialIcons
@@ -155,7 +182,7 @@ const RoomListScreen = ({ route }) => {
             )}
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

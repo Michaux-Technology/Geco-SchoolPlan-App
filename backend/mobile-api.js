@@ -249,5 +249,41 @@ app.get('/api/mobile/surveillances/enseignant/:enseignantId', async (req, res) =
     res.status(500).json({ message: error.message });
   }
 });
+
+// Route pour récupérer le planning d'une classe spécifique
+app.get('/api/mobile/planning/classe/:classeId', async (req, res) => {
+  try {
+    console.log('Requête reçue pour /api/mobile/planning/classe/:classeId');
+    const { classeId } = req.params;
+    const { semaine, annee } = req.query;
+    
+    if (!semaine || !annee) {
+      return res.status(400).json({ message: 'Les paramètres semaine et annee sont requis' });
+    }
+    
+    console.log(`Recherche du planning pour classe ${classeId}, semaine ${semaine}, année ${annee}`);
+    
+    // Récupérer les cours de la classe
+    const cours = await Cours.find({
+      classe: classeId,
+      semaine: parseInt(semaine),
+      annee: parseInt(annee)
+    }).populate('uhr');
+    
+    // Récupérer les créneaux horaires
+    const uhrs = await Uhr.find().sort({ nummer: 1 });
+    
+    console.log(`Retour de ${cours.length} cours et ${uhrs.length} créneaux horaires pour cette classe`);
+    
+    // Retourner un objet avec les cours et les créneaux horaires
+    res.json({
+      cours: cours,
+      uhrs: uhrs
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération du planning de la classe:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
 // --- Fin du code extrait ---
 } 

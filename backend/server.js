@@ -639,67 +639,169 @@ const sendTeacherUpdate = async (socket, enseignantId) => {
   }
 };
 
+// Fonction helper pour envoyer les mises à jour spécifiques à une classe
+const sendClassUpdate = async (socket, classeNom) => {
+  if (!classeNom) {
+    console.log('❌ Aucune classe abonnée, pas de mise à jour envoyée');
+    return;
+  }
+  
+  try {
+    console.log(`🔍 Recherche des cours pour la classe ${classeNom}...`);
+    
+    // Récupérer la semaine et l'année actuelles
+    const today = new Date();
+    const currentWeek = getWeekNumber(today);
+    const currentYear = today.getFullYear();
+    
+    console.log(`📅 Filtrage pour la semaine ${currentWeek} de ${currentYear}`);
+    
+    const classeCours = await Cours.find({
+      classe: classeNom,
+      semaine: currentWeek,
+      annee: currentYear
+    });
+    
+    console.log(`📚 Cours trouvés pour la classe (semaine ${currentWeek}): ${classeCours.length}`);
+    
+    const updateData = { 
+      cours: classeCours, 
+      uhrs: uhrs,
+      currentWeek: currentWeek,
+      currentYear: currentYear
+    };
+    
+    console.log('📤 Envoi de la mise à jour:', {
+      classeNom,
+      semaine: currentWeek,
+      annee: currentYear,
+      coursCount: classeCours.length,
+      uhrsCount: uhrs.length
+    });
+    
+    socket.emit('planningUpdate', updateData);
+    
+    console.log(`✅ Mise à jour envoyée à la classe ${classeNom}`);
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'envoi de la mise à jour:', error);
+  }
+};
+
 // Gestion des mises à jour en temps réel avec Socket.IO
 io.on('connection', (socket) => {
   console.log('Nouvelle connexion Socket.IO');
 
-  // Stocker l'ID de l'enseignant pour ce socket
+  // Stocker l'ID de l'enseignant ou le nom de la classe pour ce socket
   let subscribedEnseignantId = null;
+  let subscribedClasseNom = null;
 
-  // Gérer l'abonnement d'un enseignant
+  // Gérer l'abonnement d'un enseignant ou d'une classe
   socket.on('subscribe', async (data) => {
     try {
       console.log('📡 Abonnement reçu:', data);
       console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
-      console.log('📋 Liste des sockets abonnés:', Array.from(io.sockets.sockets.values()).map(s => s.subscribedEnseignantId).filter(Boolean));
+      console.log('📋 Liste des sockets abonnés:', Array.from(io.sockets.sockets.values()).map(s => ({
+        enseignantId: s.subscribedEnseignantId,
+        classeNom: s.subscribedClasseNom
+      })).filter(s => s.enseignantId || s.classeNom));
       
-      subscribedEnseignantId = data.enseignantId;
+      // Vérifier si c'est un abonnement d'enseignant ou de classe
+      if (data.enseignantId) {
+        subscribedEnseignantId = data.enseignantId;
+        subscribedClasseNom = null;
+        
+        // Stocker l'ID de l'enseignant sur le socket
+        socket.subscribedEnseignantId = data.enseignantId;
+        socket.subscribedClasseNom = null;
+        
+        // Récupérer la semaine et l'année actuelles
+        const today = new Date();
+        const currentWeek = getWeekNumber(today);
+        const currentYear = today.getFullYear();
+        
+        console.log(`🔍 Recherche des cours pour l'enseignant ${subscribedEnseignantId} (semaine ${currentWeek})...`);
+        const enseignantCours = await Cours.find({
+          'enseignants.id': subscribedEnseignantId.toString(),
+          semaine: currentWeek,
+          annee: currentYear
+        });
+        
+        console.log(`📚 Cours trouvés pour l'enseignant (semaine ${currentWeek}): ${enseignantCours.length}`);
+        
+        const enseignantSurveillances = await Surveillance.find({
+          enseignant: subscribedEnseignantId.toString(),
+          semaine: currentWeek,
+          annee: currentYear
+        }).populate('enseignant uhr');
+        
+        console.log(`👁️ Surveillances trouvées pour l'enseignant (semaine ${currentWeek}): ${enseignantSurveillances.length}`);
+        
+        const updateData = { 
+          cours: enseignantCours, 
+          surveillances: enseignantSurveillances, 
+          uhrs: uhrs,
+          currentWeek: currentWeek,
+          currentYear: currentYear
+        };
+        
+        console.log('📤 Envoi des données initiales:', {
+          enseignantId: subscribedEnseignantId,
+          semaine: currentWeek,
+          annee: currentYear,
+          coursCount: enseignantCours.length,
+          surveillancesCount: enseignantSurveillances.length,
+          uhrsCount: uhrs.length
+        });
+        
+        socket.emit('planningUpdate', updateData);
+        
+        console.log(`✅ Enseignant ${subscribedEnseignantId} abonné aux mises à jour`);
+        
+      } else if (data.classeId) {
+        subscribedClasseNom = data.classeId;
+        subscribedEnseignantId = null;
+        
+        // Stocker le nom de la classe sur le socket
+        socket.subscribedClasseNom = data.classeId;
+        socket.subscribedEnseignantId = null;
+        
+        // Récupérer la semaine et l'année actuelles
+        const today = new Date();
+        const currentWeek = getWeekNumber(today);
+        const currentYear = today.getFullYear();
+        
+        console.log(`🔍 Recherche des cours pour la classe ${subscribedClasseNom} (semaine ${currentWeek})...`);
+        const classeCours = await Cours.find({
+          classe: subscribedClasseNom,
+          semaine: currentWeek,
+          annee: currentYear
+        });
+        
+        console.log(`📚 Cours trouvés pour la classe (semaine ${currentWeek}): ${classeCours.length}`);
+        
+        const updateData = { 
+          cours: classeCours, 
+          uhrs: uhrs,
+          currentWeek: currentWeek,
+          currentYear: currentYear
+        };
+        
+        console.log('📤 Envoi des données initiales:', {
+          classeNom: subscribedClasseNom,
+          semaine: currentWeek,
+          annee: currentYear,
+          coursCount: classeCours.length,
+          uhrsCount: uhrs.length
+        });
+        
+        socket.emit('planningUpdate', updateData);
+        
+        console.log(`✅ Classe ${subscribedClasseNom} abonnée aux mises à jour`);
+        
+      } else {
+        throw new Error('Aucun enseignantId ou classeId fourni dans l\'abonnement');
+      }
       
-      // Stocker l'ID de l'enseignant sur le socket pour pouvoir l'utiliser plus tard
-      socket.subscribedEnseignantId = data.enseignantId;
-      
-      // Récupérer la semaine et l'année actuelles
-      const today = new Date();
-      const currentWeek = getWeekNumber(today);
-      const currentYear = today.getFullYear();
-      
-      console.log(`🔍 Recherche des cours pour l'enseignant ${subscribedEnseignantId} (semaine ${currentWeek})...`);
-      const enseignantCours = await Cours.find({
-        'enseignants.id': subscribedEnseignantId.toString(),
-        semaine: currentWeek,
-        annee: currentYear
-      });
-      
-      console.log(`📚 Cours trouvés pour l'enseignant (semaine ${currentWeek}): ${enseignantCours.length}`);
-      
-      const enseignantSurveillances = await Surveillance.find({
-        enseignant: subscribedEnseignantId.toString(),
-        semaine: currentWeek,
-        annee: currentYear
-      }).populate('enseignant uhr');
-      
-      console.log(`👁️ Surveillances trouvées pour l'enseignant (semaine ${currentWeek}): ${enseignantSurveillances.length}`);
-      
-      const updateData = { 
-        cours: enseignantCours, 
-        surveillances: enseignantSurveillances, 
-        uhrs: uhrs,
-        currentWeek: currentWeek,
-        currentYear: currentYear
-      };
-      
-      console.log('📤 Envoi des données initiales:', {
-        enseignantId: subscribedEnseignantId,
-        semaine: currentWeek,
-        annee: currentYear,
-        coursCount: enseignantCours.length,
-        surveillancesCount: enseignantSurveillances.length,
-        uhrsCount: uhrs.length
-      });
-      
-      socket.emit('planningUpdate', updateData);
-      
-      console.log(`✅ Enseignant ${subscribedEnseignantId} abonné aux mises à jour`);
     } catch (error) {
       console.error('❌ Erreur lors de l\'abonnement:', error);
       socket.emit('error', error.message);
@@ -802,6 +904,7 @@ io.on('connection', (socket) => {
       
       // Envoyer une mise à jour spécifique à tous les enseignants concernés
       const enseignantsIds = enseignants.map(e => e.id.toString());
+      const classesNoms = [coursData.classe];
       console.log('📤 Envoi de mises à jour aux enseignants:', enseignantsIds);
       console.log('🔌 Sockets connectés:', io.sockets.sockets.size);
       console.log('📋 Sockets abonnés:', Array.from(io.sockets.sockets.values()).map(s => ({
@@ -820,6 +923,9 @@ io.on('connection', (socket) => {
         if (clientSocket.subscribedEnseignantId && enseignantsIds.includes(clientSocket.subscribedEnseignantId)) {
           console.log(`📤 Envoi de mise à jour à l'enseignant ${clientSocket.subscribedEnseignantId}`);
           sendTeacherUpdate(clientSocket, clientSocket.subscribedEnseignantId);
+        }
+        if (clientSocket.subscribedClasseNom && classesNoms.includes(clientSocket.subscribedClasseNom)) {
+          sendClassUpdate(clientSocket, clientSocket.subscribedClasseNom);
         }
       });
       
@@ -891,6 +997,7 @@ io.on('connection', (socket) => {
       
       // Envoyer une mise à jour spécifique à tous les enseignants concernés
       const enseignantsIds = courses.flatMap(c => c.enseignants.map(e => (e.id || e._id).toString())).filter((id, index, arr) => arr.indexOf(id) === index);
+      const classesNoms = courses.map(c => c.classe);
       console.log('📤 Envoi de mises à jour aux enseignants (pasteWeek):', enseignantsIds);
       
       // Parcourir tous les sockets connectés et envoyer les mises à jour

@@ -9,7 +9,9 @@ import ViewTypeScreen from '../screens/ViewTypeScreen';
 import SetupScreen from '../screens/SetupScreen';
 import TeacherListScreen from '../screens/TeacherListScreen';
 import ClassListScreen from '../screens/ClassListScreen';
+import ClassPlanningScreen from '../screens/ClassPlanningScreen';
 import RoomListScreen from '../screens/RoomListScreen';
+import RoomPlanningScreen from '../screens/RoomPlanningScreen';
 import TeacherPlanningScreen from '../screens/TeacherPlanningScreen';
 
 const Stack = createStackNavigator();
@@ -86,6 +88,22 @@ const AppNavigator = () => {
           component={TeacherPlanningScreen}
           options={({ route }) => ({
             title: route.params?.title || 'Planning',
+            headerBackTitle: 'Retour'
+          })}
+        />
+        <Stack.Screen 
+          name="ClassPlanning" 
+          component={ClassPlanningScreen}
+          options={({ route }) => ({
+            title: `Planning - ${route.params?.classe?.nom || 'Classe'}`,
+            headerBackTitle: 'Retour'
+          })}
+        />
+        <Stack.Screen 
+          name="RoomPlanning" 
+          component={RoomPlanningScreen}
+          options={({ route }) => ({
+            title: `Planning - ${route.params?.salle?.nom || 'Salle'}`,
             headerBackTitle: 'Retour'
           })}
         />
