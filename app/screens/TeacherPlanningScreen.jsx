@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 
 const TeacherPlanningScreen = ({ route }) => {
   const { school, teacher } = route.params;
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [planning, setPlanning] = useState([]);

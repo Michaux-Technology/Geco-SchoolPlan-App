@@ -1043,7 +1043,7 @@ const styles = StyleSheet.create({
     top: 0,
     right: -5,
     zIndex: 1,
-  },
+  }, 
   annotationsContainer: {
     padding: 10,
   },

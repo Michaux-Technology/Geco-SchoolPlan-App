@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, Platform, TouchableOpacity, Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { io } from 'socket.io-client';
+import { io } from 'socket.io-client'; 
 
 const ClassPlanningScreen = ({ route }) => {
   console.log('🚀 ClassPlanningScreen - Paramètres reçus:', route.params);
