@@ -283,28 +283,40 @@ const ClassPlanningScreen = ({ route }) => {
             totalCoursRecus: data.length
           });
           
-          // Si requestedWeek et requestedYear ne sont pas encore initialisés,
-          // utiliser la semaine actuelle par défaut
-          const weekToUse = requestedWeek || currentWeek;
-          const yearToUse = requestedYear || currentYear;
+          // Déterminer la semaine à utiliser pour le filtrage
+          // Priorité : requestedWeek/requestedYear > currentWeek/currentYear > semaine actuelle par défaut
+          let weekToUse = requestedWeek || currentWeek;
+          let yearToUse = requestedYear || currentYear;
           
-          if (weekToUse && yearToUse) {
-            // Filtrer les cours pour la semaine demandée
-            const filteredPlanning = filteredCours.filter(cours => 
-              cours.semaine === weekToUse && 
-              cours.annee === yearToUse
-            );
-            console.log('📅 Planning filtré (coursUpdate):', {
-              classe: classeNom,
-              semaineDemandee: weekToUse,
-              anneeDemandee: yearToUse,
-              nombreCours: filteredPlanning.length
-            });
-            setPlanning(filteredPlanning);
-          } else {
-            // Si aucune semaine n'est définie, stocker tous les cours filtrés
-            console.log('📅 Aucune semaine définie (coursUpdate), stockage de tous les cours filtrés:', filteredCours.length);
-            setPlanning(filteredCours);
+          // Si aucune semaine n'est définie, utiliser la semaine actuelle
+          if (!weekToUse || !yearToUse) {
+            const today = new Date();
+            weekToUse = getWeekNumber(today);
+            yearToUse = today.getFullYear();
+            console.log('📅 Utilisation de la semaine actuelle par défaut:', { weekToUse, yearToUse });
+          }
+          
+          // Filtrer les cours pour la semaine demandée
+          const filteredPlanning = filteredCours.filter(cours => 
+            cours.semaine === weekToUse && 
+            cours.annee === yearToUse
+          );
+          console.log('📅 Planning filtré (coursUpdate):', {
+            classe: classeNom,
+            semaineDemandee: weekToUse,
+            anneeDemandee: yearToUse,
+            nombreCours: filteredPlanning.length,
+            totalCoursFiltres: filteredCours.length
+          });
+          
+          setPlanning(filteredPlanning);
+          
+          // Mettre à jour les variables de semaine si elles n'étaient pas définies
+          if (!requestedWeek || !requestedYear) {
+            setRequestedWeek(weekToUse);
+            setRequestedYear(yearToUse);
+            setCurrentWeek(weekToUse);
+            setCurrentYear(yearToUse);
           }
         }
         

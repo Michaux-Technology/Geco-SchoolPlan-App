@@ -233,6 +233,71 @@ const RoomPlanningScreen = ({ route }) => {
         }
       });
 
+      newSocket.on('coursUpdate', (data) => {
+        console.log('🔄 Mise à jour des cours reçue via WebSocket (coursUpdate):', {
+          dataLength: data.length,
+          timestamp: new Date().toISOString()
+        });
+        
+        setLastUpdate(new Date());
+        
+        // Traiter les données comme si c'était un planningUpdate
+        if (Array.isArray(data)) {
+          console.log('📚 Cours reçus via coursUpdate:', data.length);
+          
+          // Filtrer les cours pour cette salle
+          const filteredCours = data.filter(cours => 
+            cours.salle && cours.salle.nom === salleNom &&
+            !cours.annule // Exclure les cours annulés
+          );
+          console.log('📅 Cours filtrés pour la salle (coursUpdate):', {
+            salleNom,
+            nombreCours: filteredCours.length,
+            totalCoursRecus: data.length
+          });
+          
+          // Déterminer la semaine à utiliser pour le filtrage
+          // Priorité : requestedWeek/requestedYear > currentWeek/currentYear > semaine actuelle par défaut
+          let weekToUse = requestedWeek || currentWeek;
+          let yearToUse = requestedYear || currentYear;
+          
+          // Si aucune semaine n'est définie, utiliser la semaine actuelle
+          if (!weekToUse || !yearToUse) {
+            const today = new Date();
+            weekToUse = getWeekNumber(today);
+            yearToUse = today.getFullYear();
+            console.log('📅 Utilisation de la semaine actuelle par défaut:', { weekToUse, yearToUse });
+          }
+          
+          // Filtrer les cours pour la semaine demandée
+          const filteredPlanning = filteredCours.filter(cours => 
+            cours.semaine === weekToUse && 
+            cours.annee === yearToUse
+          );
+          console.log('📅 Planning filtré (coursUpdate):', {
+            salleNom,
+            semaineDemandee: weekToUse,
+            anneeDemandee: yearToUse,
+            nombreCours: filteredPlanning.length,
+            totalCoursFiltres: filteredCours.length
+          });
+          
+          setPlanning(filteredPlanning);
+          
+          // Mettre à jour les variables de semaine si elles n'étaient pas définies
+          if (!requestedWeek || !requestedYear) {
+            setRequestedWeek(weekToUse);
+            setRequestedYear(yearToUse);
+            setCurrentWeek(weekToUse);
+            setCurrentYear(yearToUse);
+          }
+        }
+        
+        // Forcer un remontage du composant
+        setViewKey(prev => prev + 1);
+        console.log('🔄 Composant remonté pour afficher les nouvelles données (coursUpdate)');
+      });
+
       newSocket.on('disconnect', (reason) => {
         console.log('🔌 Déconnecté du serveur Socket.IO:', reason);
         setWsConnected(false);
