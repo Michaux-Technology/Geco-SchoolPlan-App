@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, Platform, TouchableOpacity, Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { io } from 'socket.io-client'; 
+import { useTranslation } from 'react-i18next';
 
 const ClassPlanningScreen = ({ route }) => {
+  const { t } = useTranslation();
   console.log('🚀 ClassPlanningScreen - Paramètres reçus:', route.params);
   const { school, classe } = route.params;
   console.log('🚀 ClassPlanningScreen - school:', school?.apiUrl);
@@ -34,7 +36,7 @@ const ClassPlanningScreen = ({ route }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [annotations, setAnnotations] = useState({});
 
-  const days = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.'];
+  const days = [t('planning.mon'), t('planning.tue'), t('planning.wed'), t('planning.thu'), t('planning.fri')];
 
   // Fonction pour initialiser la semaine et l'année
   const initializeWeekAndYear = () => {
@@ -726,7 +728,7 @@ const ClassPlanningScreen = ({ route }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Chargement du planning...</Text>
+        <Text style={styles.loadingText}>{t('planning.loadingPlanning')}</Text>
       </View>
     );
   }
@@ -736,7 +738,7 @@ const ClassPlanningScreen = ({ route }) => {
       <View style={styles.centerContainer}>
         <MaterialIcons name="error-outline" size={64} color="#F44336" />
         <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.errorSubtext}>Tirez vers le bas pour réessayer</Text>
+        <Text style={styles.errorSubtext}>{t('planning.pullToRefresh')}</Text>
       </View>
     );
   }
@@ -745,7 +747,7 @@ const ClassPlanningScreen = ({ route }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Chargement des horaires...</Text>
+        <Text style={styles.loadingText}>{t('planning.loadingSchedules')}</Text>
       </View>
     );
   }
@@ -755,7 +757,7 @@ const ClassPlanningScreen = ({ route }) => {
       <View style={styles.centerContainer}>
         <MaterialIcons name="error-outline" size={64} color="#F44336" />
         <Text style={styles.errorText}>{timeSlotsError}</Text>
-        <Text style={styles.errorSubtext}>Tirez vers le bas pour réessayer</Text>
+        <Text style={styles.errorSubtext}>{t('planning.pullToRefresh')}</Text>
       </View>
     );
   }
@@ -786,16 +788,16 @@ const ClassPlanningScreen = ({ route }) => {
             
             <View style={styles.weekYearContainer}>
               <Text style={styles.weekYearText}>
-                Semaine {currentWeek} - {currentYear}
+                {t('planning.week')} {currentWeek} - {currentYear}
               </Text>
               {lastUpdate && (
                 <Text style={styles.lastUpdateText}>
-                  Dernière mise à jour : {lastUpdate.toLocaleTimeString()}
+                  {t('planning.lastUpdate')} : {lastUpdate.toLocaleTimeString()}
                 </Text>
               )}
               {!wsConnected && (
                 <Text style={styles.connectionStatus}>
-                  Reconnexion en cours...
+                  {t('planning.reconnecting')}
                 </Text>
               )}
             </View>
@@ -846,10 +848,10 @@ const ClassPlanningScreen = ({ route }) => {
           ) : (
             <View style={styles.centerContainer}>
               <Text style={styles.errorText}>
-                Aucun créneau horaire disponible
+                {t('planning.noData')}
               </Text>
               <Text style={styles.errorSubtext}>
-                Créneaux chargés: {timeSlots ? timeSlots.length : 'null'}
+                {t('planning.loadingSchedules')}: {timeSlots ? timeSlots.length : 'null'}
               </Text>
             </View>
           )}

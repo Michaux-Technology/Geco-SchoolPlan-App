@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const SettingsScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { schoolToEdit } = route.params || {};
   const [schoolName, setSchoolName] = useState(schoolToEdit?.name || '');
   const [apiUrl, setApiUrl] = useState(schoolToEdit?.apiUrl || '');
@@ -11,68 +14,35 @@ const SettingsScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPinging, setIsPinging] = useState(false);
 
-  const getAdjustedHostname = (hostname) => {
-    // Si c'est un émulateur Android et qu'on essaie d'accéder à localhost
-    if (Platform.OS === 'android' && 
-        (hostname === 'localhost' || hostname === '127.0.0.1')) {
-      return '10.0.2.2';
-    }
-    return hostname;
-  };
-
   const saveSchool = async () => {
-    // Vérifier les champs obligatoires
     if (!schoolName || !apiUrl || !username || !password) {
-      Alert.alert('Erreur', 'Tous les champs sont obligatoires');
+      Alert.alert(t('common.error'), t('auth.pleaseLogin'));
       return;
     }
 
     setIsLoading(true);
     try {
-      // Normaliser l'URL
       let normalizedApiUrl = apiUrl.trim();
       if (!normalizedApiUrl.startsWith('http://') && !normalizedApiUrl.startsWith('https://')) {
         normalizedApiUrl = 'http://' + normalizedApiUrl;
       }
       normalizedApiUrl = normalizedApiUrl.endsWith('/') ? normalizedApiUrl : `${normalizedApiUrl}/`;
       
-      console.log('Tentative de connexion à:', `${normalizedApiUrl}api/mobile/login`);
-      
-      // Tester la connexion avec l'API
       const response = await fetch(`${normalizedApiUrl}api/mobile/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
+        body: JSON.stringify({ username, password }),
       });
 
-      console.log('Réponse du serveur:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      // Lire le contenu de la réponse pour le débogage
       const responseText = await response.text();
-      console.log('Contenu de la réponse:', responseText);
-
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('Erreur de parsing JSON:', parseError);
-        Alert.alert(
-          'Erreur de parsing',
-          `Le serveur a retourné du contenu non-JSON.\n\n` +
-          `Status: ${response.status}\n` +
-          `Contenu reçu: ${responseText.substring(0, 200)}...\n\n` +
-          `Erreur: ${parseError.message}`
-        );
+        Alert.alert(t('common.error'), t('errors.serverError'));
         return;
       }
 
@@ -88,208 +58,61 @@ const SettingsScreen = ({ navigation, route }) => {
           refreshToken: data.refreshToken
         };
 
-        try {
-          // Récupérer les écoles existantes
-          const existingSchools = await AsyncStorage.getItem('schools');
-          let schools = existingSchools ? JSON.parse(existingSchools) : [];
-          
-          if (schoolToEdit) {
-            // Mettre à jour l'école existante
-            schools = schools.map(s => s.id === schoolToEdit.id ? schoolData : s);
-          } else {
-            // Ajouter une nouvelle école
-            schools.push(schoolData);
-          }
-          
-          // Sauvegarder la liste des écoles
-          await AsyncStorage.setItem('schools', JSON.stringify(schools));
-          
-          // Sauvegarder les données complètes de l'école
-          await AsyncStorage.setItem(`school_${schoolData.id}`, JSON.stringify(schoolData));
-          
-          Alert.alert('Succès', schoolToEdit ? 'École modifiée avec succès' : 'École ajoutée avec succès');
-          navigation.goBack();
-        } catch (storageError) {
-          console.error('Erreur de stockage:', storageError);
-          Alert.alert('Erreur de stockage', 'Impossible de sauvegarder l\'école dans le stockage local');
+        const existingSchools = await AsyncStorage.getItem('schools');
+        let schools = existingSchools ? JSON.parse(existingSchools) : [];
+        
+        if (schoolToEdit) {
+          schools = schools.map(s => s.id === schoolToEdit.id ? schoolData : s);
+        } else {
+          schools.push(schoolData);
         }
+        
+        await AsyncStorage.setItem('schools', JSON.stringify(schools));
+        await AsyncStorage.setItem(`school_${schoolData.id}`, JSON.stringify(schoolData));
+        
+        Alert.alert(t('common.success'), schoolToEdit ? t('messages.courseUpdated') : t('messages.courseAdded'));
+        navigation.goBack();
       } else {
-        Alert.alert('Erreur d\'authentification', data.message || 'Identifiants incorrects');
+        Alert.alert(t('auth.loginError'), data.message || t('auth.invalidCredentials'));
       }
     } catch (error) {
-      console.error('Erreur de connexion:', error);
-      
-      if (error instanceof TypeError && error.message === 'Network request failed') {
-        Alert.alert(
-          'Erreur de connexion',
-          'Impossible de se connecter au serveur. Vérifiez :\n\n' +
-          '1. Que l\'URL est correcte\n' +
-          '2. Que le serveur est démarré et accessible\n' +
-          '3. Que votre appareil est connecté à Internet\n' +
-          `URL tentée : ${apiUrl}`
-        );
-      } else {
-        Alert.alert(
-          'Erreur',
-          'Une erreur s\'est produite lors de la connexion au serveur.\n\n' +
-          `Détails : ${error.message}`
-        );
-      }
+      Alert.alert(t('common.error'), t('errors.networkError'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const pingHost = async () => {
-    if (!apiUrl) {
-      Alert.alert('Erreur', 'Veuillez entrer une URL');
-      return;
-    }
-
-    if (!username || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir les champs utilisateur et mot de passe pour tester la connexion');
+    if (!apiUrl || !username || !password) {
+      Alert.alert(t('common.error'), t('auth.pleaseLogin'));
       return;
     }
 
     setIsPinging(true);
-
     try {
-      // Préparation de l'URL
       let cleanUrl = apiUrl.trim().replace(/\/$/, '');
       if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
         cleanUrl = 'http://' + cleanUrl;
       }
 
-      console.log('Test de connexion vers:', cleanUrl);
-
-      // Configuration du timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      // Test du serveur principal
-      const startTime = Date.now();
-      const statusUrl = `${cleanUrl}/api/mobile/status`;
-      console.log('Test de l\'endpoint status:', statusUrl);
-      
-      const baseResponse = await fetch(statusUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
-      });
-
-      console.log('Réponse du serveur status:', {
-        status: baseResponse.status,
-        statusText: baseResponse.statusText,
-        headers: Object.fromEntries(baseResponse.headers.entries())
-      });
-
-      // Lire le contenu de la réponse pour le débogage
-      const statusText = await baseResponse.text();
-      console.log('Contenu de la réponse status:', statusText);
-
-      // Test de l'endpoint login avec POST
-      const loginUrl = `${cleanUrl}/api/mobile/login`;
-      console.log('Test de l\'endpoint login:', loginUrl);
-      
-      const loginResponse = await fetch(loginUrl, {
+      const response = await fetch(`${cleanUrl}/api/mobile/login`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          username,
-          password
-        })
+        body: JSON.stringify({ username, password }),
       });
 
-      console.log('Réponse du serveur login:', {
-        status: loginResponse.status,
-        statusText: loginResponse.statusText,
-        headers: Object.fromEntries(loginResponse.headers.entries())
-      });
-
-      clearTimeout(timeoutId);
-      const endTime = Date.now();
-
-      // Préparation du message de résultat
-      let message = `✅ Le serveur répond !\n\n`;
-      message += `URL principale : ${cleanUrl}\n`;
-      message += `Status serveur : ${baseResponse.status}\n`;
-      message += `Temps de réponse : ${endTime - startTime}ms\n\n`;
+      const data = await response.json();
       
-      message += `Test endpoint login :\n`;
-      message += `URL : ${loginUrl}\n`;
-      message += `Status : ${loginResponse.status}\n`;
-
-      // Vérification de la réponse de login
-      try {
-        const loginText = await loginResponse.text();
-        console.log('Contenu de la réponse login:', loginText);
-        
-        let loginData;
-        try {
-          loginData = JSON.parse(loginText);
-        } catch (parseError) {
-          console.error('Erreur de parsing JSON:', parseError);
-          message += `\n❌ Erreur de parsing JSON\n`;
-          message += `Contenu reçu: ${loginText.substring(0, 200)}...\n`;
-          message += `Erreur: ${parseError.message}\n`;
-          Alert.alert('Échec du test', message);
-          return;
-        }
-
-        if (loginResponse.status === 200 && loginData.token) {
-          message += `\n✅ Authentification réussie !\n`;
-          message += `Role : ${loginData.user?.role || 'non spécifié'}\n`;
-          Alert.alert('Test réussi', message);
-        } else {
-          message += `\n❌ Échec de l'authentification\n`;
-          message += `Message : ${loginData.message || 'Erreur inconnue'}\n`;
-          Alert.alert('Échec du test', message);
-        }
-      } catch (readError) {
-        console.error('Erreur lors de la lecture de la réponse:', readError);
-        message += `\n❌ Erreur lors de la lecture de la réponse\n`;
-        message += `Erreur: ${readError.message}\n`;
-        Alert.alert('Échec du test', message);
+      if (response.status === 200 && data.token) {
+        Alert.alert(t('common.success'), t('messages.changesSaved'));
+      } else {
+        Alert.alert(t('common.error'), data.message || t('errors.networkError'));
       }
-
     } catch (error) {
-      console.error('Erreur de connexion:', error);
-      let message = '❌ Erreur de connexion\n\n';
-      
-      if (error.name === 'AbortError') {
-        message += 'Le serveur n\'a pas répondu dans les 15 secondes.\n\n';
-        message += 'Suggestions:\n';
-        message += '• Vérifiez que le serveur est démarré\n';
-        message += '• Vérifiez que le port est correct\n';
-        message += '• Vérifiez votre connexion réseau';
-      }
-      else if (error.message.includes('Network request failed')) {
-        message += `URL testée: ${cleanUrl}\n\n`;
-        message += 'Suggestions:\n';
-        message += '1. Vérifiez que le serveur est démarré\n';
-        message += '2. Essayez ces alternatives:\n';
-        message += `   • ${cleanUrl.replace('http://', 'http://localhost:')}\n`;
-        message += `   • ${cleanUrl.replace('http://', 'http://10.0.2.2:')} (émulateur Android)\n`;
-        message += '3. Vérifiez l\'adresse IP du serveur avec:\n';
-        message += '   • Windows: ipconfig\n';
-        message += '   • Mac/Linux: ifconfig';
-      }
-      else {
-        message += `Erreur: ${error.message}\n\n`;
-        message += 'Suggestions:\n';
-        message += '• Vérifiez que l\'URL est correcte\n';
-        message += '• Vérifiez que le serveur est démarré\n';
-        message += '• Vérifiez que vous êtes sur le même réseau';
-      }
-
-      Alert.alert('Diagnostic', message);
+      Alert.alert(t('common.error'), t('errors.networkError'));
     } finally {
       setIsPinging(false);
     }
@@ -298,12 +121,12 @@ const SettingsScreen = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        {schoolToEdit ? 'Modifier une école' : 'Ajouter une école'}
+        {schoolToEdit ? t('common.edit') : t('common.add')} {t('navigation.home')}
       </Text>
       
       <TextInput
         style={styles.input}
-        placeholder="Nom de l'école"
+        placeholder={t('navigation.home')}
         value={schoolName}
         onChangeText={setSchoolName}
       />
@@ -316,27 +139,27 @@ const SettingsScreen = ({ navigation, route }) => {
           onChangeText={setApiUrl}
           keyboardType="url"
         />
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.pingButton, isPinging && styles.disabledButton]}
           onPress={pingHost}
           disabled={isPinging}
         >
           <Text style={styles.pingButtonText}>
-            {isPinging ? 'Test...' : 'Tester'}
+            {isPinging ? t('common.loading') : t('common.retry')}
           </Text>
         </TouchableOpacity>
       </View>
       
       <TextInput
         style={styles.input}
-        placeholder="Nom d'utilisateur"
+        placeholder={t('auth.username')}
         value={username}
         onChangeText={setUsername}
       />
       
       <TextInput
         style={styles.input}
-        placeholder="Mot de passe"
+        placeholder={t('auth.password')}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -348,7 +171,7 @@ const SettingsScreen = ({ navigation, route }) => {
         disabled={isLoading}
       >
         <Text style={styles.saveButtonText}>
-          {isLoading ? 'Connexion...' : (schoolToEdit ? 'Modifier' : 'Sauvegarder')}
+          {isLoading ? t('common.loading') : (schoolToEdit ? t('common.edit') : t('common.save'))}
         </Text>
       </TouchableOpacity>
     </View>

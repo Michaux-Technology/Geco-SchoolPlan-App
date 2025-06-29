@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const ViewTypeScreen = ({ route, navigation }) => {
+  const { t } = useTranslation();
   const { school, userType } = route.params;
 
   const handleOptionPress = (option) => {
@@ -52,8 +54,8 @@ const ViewTypeScreen = ({ route, navigation }) => {
         onPress={() => handleOptionPress('teachers')}
       >
         <MaterialIcons name="people" size={32} color="#1976D2" />
-        <Text style={styles.optionTitle}>Enseignants</Text>
-        <Text style={styles.optionDescription}>Consulter l'emploi du temps des enseignants</Text>
+        <Text style={styles.optionTitle}>{t('viewTypes.teachers')}</Text>
+        <Text style={styles.optionDescription}>{t('viewTypes.teachersDescription')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
@@ -61,8 +63,8 @@ const ViewTypeScreen = ({ route, navigation }) => {
         onPress={() => handleOptionPress('classes')}
       >
         <MaterialIcons name="class" size={32} color="#2E7D32" />
-        <Text style={styles.optionTitle}>Classes</Text>
-        <Text style={styles.optionDescription}>Consulter l'emploi du temps des classes</Text>
+        <Text style={styles.optionTitle}>{t('viewTypes.classes')}</Text>
+        <Text style={styles.optionDescription}>{t('viewTypes.classesDescription')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
@@ -70,8 +72,8 @@ const ViewTypeScreen = ({ route, navigation }) => {
         onPress={() => handleOptionPress('rooms')}
       >
         <MaterialIcons name="meeting-room" size={32} color="#C2185B" />
-        <Text style={styles.optionTitle}>Salles</Text>
-        <Text style={styles.optionDescription}>Consulter l'occupation des salles</Text>
+        <Text style={styles.optionTitle}>{t('viewTypes.rooms')}</Text>
+        <Text style={styles.optionDescription}>{t('viewTypes.roomsDescription')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -83,8 +85,8 @@ const ViewTypeScreen = ({ route, navigation }) => {
         onPress={() => handleOptionPress('classes')}
       >
         <MaterialIcons name="class" size={48} color="#2E7D32" />
-        <Text style={styles.optionTitle}>Emploi du temps</Text>
-        <Text style={styles.optionDescription}>Consulter l'emploi du temps de votre classe</Text>
+        <Text style={styles.optionTitle}>{t('viewTypes.studentViewTitle')}</Text>
+        <Text style={styles.optionDescription}>{t('viewTypes.studentViewDescription')}</Text>
       </TouchableOpacity>
     </View>
   );

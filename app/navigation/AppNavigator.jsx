@@ -3,6 +3,7 @@ import { TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ViewTypeScreen from '../screens/ViewTypeScreen';
@@ -17,6 +18,8 @@ import TeacherPlanningScreen from '../screens/TeacherPlanningScreen';
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
+  const { t } = useTranslation();
+
   return (
     <NavigationContainer>
       <Stack.Navigator 
@@ -35,7 +38,7 @@ const AppNavigator = () => {
           name="Home" 
           component={HomeScreen} 
           options={({ navigation }) => ({
-            title: 'Liste des écoles',
+            title: t('navigation.home'),
             headerRight: () => (
               <TouchableOpacity
                 style={{ marginRight: 16 }}
@@ -49,62 +52,62 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="Settings" 
           component={SettingsScreen} 
-          options={{ title: 'Paramètres' }}
+          options={{ title: t('settings.title') }}
         />
         <Stack.Screen 
           name="ViewType" 
           component={ViewTypeScreen} 
-          options={{ title: 'Types de vues' }}
+          options={{ title: t('navigation.viewType') }}
         />
         <Stack.Screen 
           name="Setup" 
           component={SetupScreen} 
-          options={{ title: 'Configuration des écoles' }}
+          options={{ title: t('navigation.setup') }}
         />
         <Stack.Screen 
           name="TeacherList" 
           component={TeacherListScreen} 
           options={{ 
-            title: 'Liste des enseignants',
-            headerBackTitle: 'Retour'
+            title: t('navigation.teachers'),
+            headerBackTitle: t('common.back')
           }}
         />
         <Stack.Screen 
           name="ClassList" 
           component={ClassListScreen}
           options={{
-            title: 'Liste des classes',
+            title: t('navigation.classes'),
           }}
         />
         <Stack.Screen 
           name="RoomList" 
           component={RoomListScreen}
           options={{
-            title: 'Liste des salles',
+            title: t('navigation.rooms'),
           }}
         />
         <Stack.Screen 
           name="TeacherPlanning" 
           component={TeacherPlanningScreen}
           options={({ route }) => ({
-            title: route.params?.title || 'Planning',
-            headerBackTitle: 'Retour'
+            title: route.params?.title || t('navigation.planning'),
+            headerBackTitle: t('common.back')
           })}
         />
         <Stack.Screen 
           name="ClassPlanning" 
           component={ClassPlanningScreen}
           options={({ route }) => ({
-            title: `Planning - ${route.params?.classe?.nom || 'Classe'}`,
-            headerBackTitle: 'Retour'
+            title: `${t('navigation.planning')} - ${route.params?.classe?.nom || t('navigation.class')}`,
+            headerBackTitle: t('common.back')
           })}
         />
         <Stack.Screen 
           name="RoomPlanning" 
           component={RoomPlanningScreen}
           options={({ route }) => ({
-            title: `Planning - ${route.params?.salle?.nom || 'Salle'}`,
-            headerBackTitle: 'Retour'
+            title: `${t('navigation.planning')} - ${route.params?.salle?.nom || t('navigation.room')}`,
+            headerBackTitle: t('common.back')
           })}
         />
       </Stack.Navigator>

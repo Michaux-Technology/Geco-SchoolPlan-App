@@ -941,10 +941,11 @@ io.on('connection', (socket) => {
   socket.on('pasteWeek', async (data) => {
     try {
       console.log('Demande de copie de semaine reçue:', data);
-      const { courses, targetWeek, targetYear, sourceWeek, sourceYear } = data;
+      const { courses, surveillances: surveillancesData, targetWeek, targetYear, sourceWeek, sourceYear } = data;
       
-      if (!courses || !Array.isArray(courses) || courses.length === 0) {
-        socket.emit('pasteWeekError', 'Aucun cours à copier');
+      if ((!courses || !Array.isArray(courses) || courses.length === 0) && 
+          (!surveillancesData || !Array.isArray(surveillancesData) || surveillancesData.length === 0)) {
+        socket.emit('pasteWeekError', 'Aucun cours ou surveillance à copier');
         return;
       }
       
@@ -957,47 +958,84 @@ io.on('connection', (socket) => {
       // Ajouter les nouveaux cours
       let successCount = 0;
       let errorCount = 0;
+      let surveillanceSuccessCount = 0;
+      let surveillanceErrorCount = 0;
       
-      for (const coursData of courses) {
-        try {
-          // S'assurer que les champs obligatoires sont présents
-          if (!coursData.classe || !coursData.enseignants || !coursData.matiere || 
-              !coursData.salle || !coursData.jour || !coursData.heure || !coursData.uhr) {
-            console.error('Données de cours invalides:', coursData);
+      // Traiter les cours
+      if (courses && Array.isArray(courses) && courses.length > 0) {
+        for (const coursData of courses) {
+          try {
+            // S'assurer que les champs obligatoires sont présents
+            if (!coursData.classe || !coursData.enseignants || !coursData.matiere || 
+                !coursData.salle || !coursData.jour || !coursData.heure || !coursData.uhr) {
+              console.error('Données de cours invalides:', coursData);
+              errorCount++;
+              continue;
+            }
+            
+            await Cours.create({
+              classe: coursData.classe,
+              enseignants: coursData.enseignants,
+              matiere: coursData.matiere,
+              salle: coursData.salle,
+              jour: coursData.jour,
+              heure: coursData.heure,
+              uhr: coursData.uhr,
+              semaine: targetWeek,
+              annee: targetYear,
+              annule: coursData.annule || false,
+              remplace: coursData.remplace || false,
+              remplacementInfo: coursData.remplacementInfo || '',
+              commentaire: coursData.commentaire || ''
+            });
+            
+            successCount++;
+          } catch (error) {
+            console.error('Erreur lors de la création d\'un cours:', error);
             errorCount++;
-            continue;
           }
-          
-          await Cours.create({
-            classe: coursData.classe,
-            enseignants: coursData.enseignants,
-            matiere: coursData.matiere,
-            salle: coursData.salle,
-            jour: coursData.jour,
-            heure: coursData.heure,
-            uhr: coursData.uhr,
-            semaine: targetWeek,
-            annee: targetYear,
-            annule: coursData.annule || false,
-            remplace: coursData.remplace || false,
-            remplacementInfo: coursData.remplacementInfo || '',
-            commentaire: coursData.commentaire || ''
-          });
-          
-          successCount++;
-        } catch (error) {
-          console.error('Erreur lors de la création d\'un cours:', error);
-          errorCount++;
         }
       }
       
-      // Actualiser les cours après l'ajout
+      // Traiter les surveillances
+      if (surveillancesData && Array.isArray(surveillancesData) && surveillancesData.length > 0) {
+        for (const surveillanceData of surveillancesData) {
+          try {
+            // S'assurer que les champs obligatoires sont présents
+            if (!surveillanceData.enseignant || !surveillanceData.uhr || !surveillanceData.jour) {
+              console.error('Données de surveillance invalides:', surveillanceData);
+              surveillanceErrorCount++;
+              continue;
+            }
+            
+            await Surveillance.create({
+              enseignant: surveillanceData.enseignant,
+              lieu: surveillanceData.lieu || '',
+              jour: surveillanceData.jour,
+              position: surveillanceData.position || -1,
+              uhr: surveillanceData.uhr,
+              semaine: targetWeek,
+              annee: targetYear,
+              ordre: surveillanceData.ordre || 0
+            });
+            
+            surveillanceSuccessCount++;
+          } catch (error) {
+            console.error('Erreur lors de la création d\'une surveillance:', error);
+            surveillanceErrorCount++;
+          }
+        }
+      }
+      
+      // Actualiser les cours et surveillances après l'ajout
       cours = await Cours.find({});
+      surveillances = await Surveillance.find({}).populate('enseignant');
       io.emit('coursUpdate', cours);
+      io.emit('planningUpdate', { surveillances });
       
       // Envoyer une mise à jour spécifique à tous les enseignants concernés
-      const enseignantsIds = courses.flatMap(c => c.enseignants.map(e => (e.id || e._id).toString())).filter((id, index, arr) => arr.indexOf(id) === index);
-      const classesNoms = courses.map(c => c.classe);
+      const enseignantsIds = courses ? courses.flatMap(c => c.enseignants.map(e => (e.id || e._id).toString())).filter((id, index, arr) => arr.indexOf(id) === index) : [];
+      const classesNoms = courses ? courses.map(c => c.classe) : [];
       console.log('📤 Envoi de mises à jour aux enseignants (pasteWeek):', enseignantsIds);
       
       // Parcourir tous les sockets connectés et envoyer les mises à jour
@@ -1009,16 +1047,41 @@ io.on('connection', (socket) => {
       });
       
       // Envoyer une réponse
-      if (errorCount === 0) {
+      const totalSuccess = successCount + surveillanceSuccessCount;
+      const totalErrors = errorCount + surveillanceErrorCount;
+      
+      if (totalErrors === 0) {
+        let message = '';
+        if (successCount > 0 && surveillanceSuccessCount > 0) {
+          message = `${successCount} cours et ${surveillanceSuccessCount} surveillances copiés avec succès`;
+        } else if (successCount > 0) {
+          message = `${successCount} cours copiés avec succès`;
+        } else if (surveillanceSuccessCount > 0) {
+          message = `${surveillanceSuccessCount} surveillances copiées avec succès`;
+        }
+        
         socket.emit('pasteWeekSuccess', { 
-          message: `${successCount} cours copiés avec succès`,
-          copied: successCount
+          message: message,
+          copied: totalSuccess,
+          coursesCopied: successCount,
+          surveillancesCopied: surveillanceSuccessCount
         });
       } else {
+        let message = '';
+        if (successCount > 0 && surveillanceSuccessCount > 0) {
+          message = `${successCount} cours et ${surveillanceSuccessCount} surveillances copiés avec succès, ${totalErrors} erreurs`;
+        } else if (successCount > 0) {
+          message = `${successCount} cours copiés avec succès, ${totalErrors} erreurs`;
+        } else if (surveillanceSuccessCount > 0) {
+          message = `${surveillanceSuccessCount} surveillances copiées avec succès, ${totalErrors} erreurs`;
+        }
+        
         socket.emit('pasteWeekSuccess', { 
-          message: `${successCount} cours copiés avec succès, ${errorCount} erreurs`,
-          copied: successCount,
-          errors: errorCount
+          message: message,
+          copied: totalSuccess,
+          errors: totalErrors,
+          coursesCopied: successCount,
+          surveillancesCopied: surveillanceSuccessCount
         });
       }
     } catch (error) {
@@ -1098,6 +1161,16 @@ io.on('connection', (socket) => {
       await Surveillance.findByIdAndDelete(surveillanceId);
       surveillances = await Surveillance.find({}).populate('enseignant');
       io.emit('planningUpdate', { surveillances });
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  // Gestionnaire pour obtenir les surveillances
+  socket.on('getSurveillances', async () => {
+    try {
+      surveillances = await Surveillance.find({}).populate('enseignant');
+      socket.emit('planningUpdate', { surveillances });
     } catch (error) {
       socket.emit('error', error.message);
     }

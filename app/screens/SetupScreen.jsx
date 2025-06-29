@@ -3,8 +3,10 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, RefreshContr
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const SetupScreen = () => {
+  const { t } = useTranslation();
   const [schools, setSchools] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
@@ -43,25 +45,25 @@ const SetupScreen = () => {
 
   const handleDeleteSchool = (school) => {
     Alert.alert(
-      'Supprimer l\'école',
-      `Êtes-vous sûr de vouloir supprimer ${school.name} ?`,
+      t('common.delete'),
+      `${t('common.confirm')} ${school.name} ?`,
       [
         {
-          text: 'Annuler',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Supprimer',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               const updatedSchools = schools.filter(s => s.id !== school.id);
               await AsyncStorage.setItem('schools', JSON.stringify(updatedSchools));
               setSchools(updatedSchools);
-              Alert.alert('Succès', 'École supprimée avec succès');
+              Alert.alert(t('common.success'), t('messages.courseDeleted'));
             } catch (error) {
               console.error('Erreur lors de la suppression:', error);
-              Alert.alert('Erreur', 'Impossible de supprimer l\'école');
+              Alert.alert(t('common.error'), t('errors.unknownError'));
             }
           },
         },
@@ -75,11 +77,11 @@ const SetupScreen = () => {
         <View style={styles.schoolHeader}>
           <Text style={styles.schoolName}>{item.name}</Text>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>{item.role || 'Non défini'}</Text>
+            <Text style={styles.roleText}>{item.role || t('common.undefined')}</Text>
           </View>
         </View>
         <Text style={styles.schoolUrl}>{item.apiUrl}</Text>
-        <Text style={styles.username}>Utilisateur : {item.username}</Text>
+        <Text style={styles.username}>{t('auth.username')} : {item.username}</Text>
       </View>
       <View style={styles.actionsContainer}>
         <TouchableOpacity 
@@ -107,8 +109,8 @@ const SetupScreen = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="school" size={64} color="#CCCCCC" />
-            <Text style={styles.emptyText}>Aucune école configurée</Text>
-            <Text style={styles.emptySubtext}>Appuyez sur le bouton ci-dessous pour ajouter une école</Text>
+            <Text style={styles.emptyText}>{t('setup.noSchools')}</Text>
+            <Text style={styles.emptySubtext}>{t('setup.addSchoolHint')}</Text>
           </View>
         }
         refreshControl={
@@ -126,7 +128,7 @@ const SetupScreen = () => {
         onPress={() => navigation.navigate('Settings')}
       >
         <MaterialIcons name="add" size={24} color="#FFFFFF" />
-        <Text style={styles.addButtonText}>Ajouter une école</Text>
+        <Text style={styles.addButtonText}>{t('setup.addSchool')}</Text>
       </TouchableOpacity>
     </View>
   );

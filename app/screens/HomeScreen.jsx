@@ -3,11 +3,17 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, RefreshContr
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../hooks/useLanguage';
 
 const HomeScreen = () => {
+  const { t } = useTranslation();
+  const { currentLanguage, changeLanguage, getLanguageName, getLanguageFlag, availableLanguages, getCurrentLanguageDirection } = useLanguage();
   const [schools, setSchools] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
+
+  const languageDirection = getCurrentLanguageDirection();
 
   const loadSchools = async () => {
     try {
@@ -90,29 +96,85 @@ const HomeScreen = () => {
 
   const handleDeleteSchool = (school) => {
     Alert.alert(
-      'Supprimer l\'école',
-      `Êtes-vous sûr de vouloir supprimer ${school.name} ?`,
+      t('common.delete'),
+      `${t('common.confirm')} ${school.name} ?`,
       [
         {
-          text: 'Annuler',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Supprimer',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               const updatedSchools = schools.filter(s => s.id !== school.id);
               await AsyncStorage.setItem('schools', JSON.stringify(updatedSchools));
               setSchools(updatedSchools);
-              Alert.alert('Succès', 'École supprimée avec succès');
+              Alert.alert(t('common.success'), t('messages.courseDeleted'));
             } catch (error) {
               console.error('Erreur lors de la suppression:', error);
-              Alert.alert('Erreur', 'Impossible de supprimer l\'école');
+              Alert.alert(t('common.error'), t('errors.unknownError'));
             }
           },
         },
       ]
+    );
+  };
+
+  const handleLanguageChange = (language) => {
+    Alert.alert(
+      t('settings.language'),
+      `${t('common.confirm')} ${t('settings.language')}?`,
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('common.confirm'),
+          onPress: () => changeLanguage(language),
+        },
+      ]
+    );
+  };
+
+  const renderLanguageOption = (languageCode) => {
+    const isSelected = currentLanguage === languageCode;
+    return (
+      <TouchableOpacity
+        key={languageCode}
+        style={[styles.languageOption, isSelected && styles.selectedLanguage]}
+        onPress={() => handleLanguageChange(languageCode)}
+      >
+        <View style={styles.languageInfo}>
+          <Text style={styles.languageFlag}>{getLanguageFlag(languageCode)}</Text>
+          <Text style={[styles.languageName, isSelected && styles.selectedLanguageText]}>
+            {getLanguageName(languageCode)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderLanguageSection = () => {
+    const firstRowLanguages = ['fr', 'de', 'en'];
+    const secondRowLanguages = ['ru', 'ar'];
+
+    return (
+      <View style={[styles.languageSection, { direction: languageDirection }]}>
+        <Text style={styles.languageTitle}>{t('settings.language')}</Text>
+        
+        {/* Première ligne : Français, Allemand, Anglais */}
+        <View style={styles.languageRow}>
+          {firstRowLanguages.map(renderLanguageOption)}
+        </View>
+        
+        {/* Deuxième ligne : Russe, Arabe */}
+        <View style={[styles.languageRow, { justifyContent: 'center' }]}>
+          {secondRowLanguages.map(renderLanguageOption)}
+        </View>
+      </View>
     );
   };
 
@@ -143,10 +205,11 @@ const HomeScreen = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="school" size={64} color="#CCCCCC" />
-            <Text style={styles.emptyText}>Aucune école configurée</Text>
-            <Text style={styles.emptySubtext}>Aucune école n'est disponible pour le moment</Text>
+            <Text style={styles.emptyText}>{t('navigation.home')}</Text>
+            <Text style={styles.emptySubtext}>{t('planning.noData')}</Text>
           </View>
         }
+        ListFooterComponent={renderLanguageSection()}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -238,6 +301,54 @@ const styles = StyleSheet.create({
     color: '#999999',
     marginTop: 8,
     textAlign: 'center',
+  },
+  languageRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 4,
+  },
+  languageOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#CCCCCC',
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  languageInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  languageFlag: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  languageName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  selectedLanguage: {
+    borderColor: '#2196F3',
+  },
+  selectedLanguageText: {
+    fontWeight: 'bold',
+  },
+  languageSection: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#CCCCCC',
+  },
+  languageTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginBottom: 16,
   },
 });
 
