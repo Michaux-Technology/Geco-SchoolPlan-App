@@ -375,15 +375,6 @@ const ClassPlanningScreen = ({ route }) => {
       
       let baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
       
-      // Si on est sur Android et que l'URL est locale, utiliser l'adresse spéciale pour l'émulateur
-      if (Platform.OS === 'android') {
-        if (baseUrl.includes('192.168.1.124')) {
-          baseUrl = baseUrl.replace('192.168.1.124', '10.0.2.2');
-        } else if (baseUrl.includes('192.168.1.108')) {
-          baseUrl = baseUrl.replace('192.168.1.108', '10.0.2.2');
-        }
-      }
-      
       const apiUrl = `${baseUrl}/api/mobile/uhrs`;
 
       const response = await fetch(apiUrl, {
