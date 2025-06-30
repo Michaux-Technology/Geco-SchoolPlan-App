@@ -866,42 +866,42 @@ const ClassPlanningScreen = ({ route }) => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {selectedCours?.remplace ? 'Détails du remplacement' : 
-               selectedCours?.annule ? 'Cours annulé' : 'Détails du cours'}
+              {selectedCours?.remplace ? t('planning.replacementDetails') : 
+               selectedCours?.annule ? t('planning.cancelledCourse') : t('planning.courseDetails')}
             </Text>
             {selectedCours && (
               <>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Matière :</Text> {selectedCours.matiere}
+                  <Text style={styles.modalLabel}>{t('planning.subject')} :</Text> {selectedCours.matiere}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Enseignant :</Text> {selectedCours.enseignants && selectedCours.enseignants.length > 0 
+                  <Text style={styles.modalLabel}>{t('planning.teacher')} :</Text> {selectedCours.enseignants && selectedCours.enseignants.length > 0 
                     ? selectedCours.enseignants.map(e => e.nom).join(', ')
-                    : 'Non défini'
+                    : t('planning.notDefined')
                   }
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Salle :</Text> {selectedCours.salle || 'Non définie'}
+                  <Text style={styles.modalLabel}>{t('planning.room')} :</Text> {selectedCours.salle || t('planning.notDefinedF')}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Jour :</Text> {selectedCours.jour}
+                  <Text style={styles.modalLabel}>{t('planning.day')} :</Text> {selectedCours.jour}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Heure :</Text> {selectedCours.heure}
+                  <Text style={styles.modalLabel}>{t('planning.time')} :</Text> {selectedCours.heure}
                 </Text>
                 {selectedCours.commentaire && selectedCours.commentaire.trim() !== '' && (
                   <Text style={styles.modalText}>
-                    <Text style={styles.modalLabel}>Commentaire :</Text> {selectedCours.commentaire}
+                    <Text style={styles.modalLabel}>{t('planning.comment')} :</Text> {selectedCours.commentaire}
                   </Text>
                 )}
                 {selectedCours.remplace && selectedCours.remplacementInfo && (
                   <Text style={styles.modalText}>
-                    <Text style={styles.modalLabel}>Information de remplacement :</Text> {selectedCours.remplacementInfo}
+                    <Text style={styles.modalLabel}>{t('planning.replacementInfo')} :</Text> {selectedCours.remplacementInfo}
                   </Text>
                 )}
                 {selectedCours.annule && (
                   <Text style={[styles.modalText, { color: '#FF9800', fontStyle: 'italic' }]}>
-                    ⚠️ Ce cours a été annulé
+                    ⚠️ {t('planning.courseCancelled')}
                   </Text>
                 )}
               </>
@@ -910,7 +910,7 @@ const ClassPlanningScreen = ({ route }) => {
               style={styles.modalButton}
               onPress={() => setModalVisible(false)}
             >
-              <Text style={styles.modalButtonText}>Fermer</Text>
+              <Text style={styles.modalButtonText}>{t('common.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -69,7 +69,7 @@
     "noTimeSlots": "Временные слоты недоступны",
     "timeSlotsLoaded": "Временные слоты загружены",
     "pullToRefresh": "Потяните вниз для обновления",
-    "pullToRetry": "Потяните вниз для повтора",
+    "pullToRetry": "Потяните для повтора",
     "lastUpdate": "Последнее обновление",
     "reconnecting": "Переподключение...",
     "connectionError": "Ошибка подключения в реальном времени",
@@ -96,7 +96,8 @@
     "replaced": "Заменено",
     "comment": "Комментарий",
     "replacementInfo": "Информация о замене",
-    "notDefined": "Не определено"
+    "notDefined": "Не определено",
+    "notDefinedF": "Не определено"
   },
   "settings": {
     "title": "Настройки",
