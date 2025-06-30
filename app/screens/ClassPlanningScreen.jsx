@@ -530,11 +530,11 @@ const ClassPlanningScreen = ({ route }) => {
   const getCoursByDayAndHour = (day, hour) => {
     // Convertir le jour abrégé en jour complet
     const joursComplets = {
-      'Lun.': 'Lundi',
-      'Mar.': 'Mardi',
-      'Mer.': 'Mercredi',
-      'Jeu.': 'Jeudi',
-      'Ven.': 'Vendredi'
+      [t('planning.mon')]: 'Lundi',
+      [t('planning.tue')]: 'Mardi',
+      [t('planning.wed')]: 'Mercredi',
+      [t('planning.thu')]: 'Jeudi',
+      [t('planning.fri')]: 'Vendredi'
     };
     
     const jourComplet = joursComplets[day];
@@ -615,12 +615,12 @@ const ClassPlanningScreen = ({ route }) => {
         <Text style={styles.coursClasse}>
           {coursItem.enseignants && coursItem.enseignants.length > 0 
             ? coursItem.enseignants.map(e => e.nom).join(', ')
-            : 'Enseignant non défini'
+            : t('planning.teacherNotDefined')
           }
         </Text>
         <View style={styles.classeContainer}>
           <Text style={styles.coursSalle}>
-            {coursItem.salle || 'Salle non définie'}
+            {coursItem.salle || t('planning.roomNotDefined')}
           </Text>
           {coursItem.commentaire && coursItem.commentaire.trim() !== '' && (
             <MaterialIcons 
@@ -650,7 +650,7 @@ const ClassPlanningScreen = ({ route }) => {
 
     return (
       <View style={styles.annotationsContainer}>
-        <Text style={styles.annotationsTitle}>Annotations de la semaine</Text>
+        <Text style={styles.annotationsTitle}>{t('planning.weekAnnotations')}</Text>
         {annotationsAvecContenu.map((item, index) => (
           <View key={index} style={styles.annotationItem}>
             <Text style={styles.annotationJour}>{item.jour}</Text>

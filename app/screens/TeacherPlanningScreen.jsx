@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, Platform, TouchableOpacity, Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { io } from 'socket.io-client';
+import { useTranslation } from 'react-i18next';
 
 const TeacherPlanningScreen = ({ route }) => {
+  const { t } = useTranslation();
   const { school, teacher } = route.params;
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
@@ -27,7 +29,7 @@ const TeacherPlanningScreen = ({ route }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [annotations, setAnnotations] = useState({});
 
-  const days = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.'];
+  const days = [t('planning.mon'), t('planning.tue'), t('planning.wed'), t('planning.thu'), t('planning.fri')];
 
   // Fonction pour initialiser la semaine et l'année
   const initializeWeekAndYear = () => {
@@ -620,11 +622,11 @@ const TeacherPlanningScreen = ({ route }) => {
   const getCoursByDayAndHour = (day, hour) => {
     // Convertir le jour abrégé en jour complet
     const joursComplets = {
-      'Lun.': 'Lundi',
-      'Mar.': 'Mardi',
-      'Mer.': 'Mercredi',
-      'Jeu.': 'Jeudi',
-      'Ven.': 'Vendredi'
+      [t('planning.mon')]: 'Lundi',
+      [t('planning.tue')]: 'Mardi',
+      [t('planning.wed')]: 'Mercredi',
+      [t('planning.thu')]: 'Jeudi',
+      [t('planning.fri')]: 'Vendredi'
     };
     
     const jourComplet = joursComplets[day];
@@ -648,11 +650,11 @@ const TeacherPlanningScreen = ({ route }) => {
   const getSurveillancesByDayAndHour = (day, hour) => {
     // Convertir le jour abrégé en jour complet
     const joursComplets = {
-      'Lun.': 'Lundi',
-      'Mar.': 'Mardi',
-      'Mer.': 'Mercredi',
-      'Jeu.': 'Jeudi',
-      'Ven.': 'Vendredi'
+      [t('planning.mon')]: 'Lundi',
+      [t('planning.tue')]: 'Mardi',
+      [t('planning.wed')]: 'Mercredi',
+      [t('planning.thu')]: 'Jeudi',
+      [t('planning.fri')]: 'Vendredi'
     };
     
     const jourComplet = joursComplets[day];
@@ -756,8 +758,8 @@ const TeacherPlanningScreen = ({ route }) => {
               ellipsizeMode="tail"
             >
               {item.matiere}
-              {item.annule && ' (Annulé)'}
-              {item.remplace && ' (Remplacé)'}
+              {item.annule && ` (${t('planning.cancelled')})`}
+              {item.remplace && ` (${t('planning.replaced')})`}
             </Text>
           </View>
           <Text style={[
@@ -801,7 +803,7 @@ const TeacherPlanningScreen = ({ route }) => {
     return (
       <View style={styles.surveillanceItem}>
         <Text style={styles.surveillanceText}>
-          Surveil.
+          {t('planning.surveillance')}
         </Text>
       </View>
     );
@@ -811,11 +813,11 @@ const TeacherPlanningScreen = ({ route }) => {
   const getSurveillancesEntreCreneaux = (day, timeSlotIndex) => {
     // Convertir le jour abrégé en jour complet
     const joursComplets = {
-      'Lun.': 'Lundi',
-      'Mar.': 'Mardi',
-      'Mer.': 'Mercredi',
-      'Jeu.': 'Jeudi',
-      'Ven.': 'Vendredi'
+      [t('planning.mon')]: 'Lundi',
+      [t('planning.tue')]: 'Mardi',
+      [t('planning.wed')]: 'Mercredi',
+      [t('planning.thu')]: 'Jeudi',
+      [t('planning.fri')]: 'Vendredi'
     };
     
     const jourComplet = joursComplets[day];
@@ -875,7 +877,7 @@ const TeacherPlanningScreen = ({ route }) => {
 
     return (
       <View style={styles.annotationsContainer}>
-        <Text style={styles.annotationsTitle}>Annotations de la semaine</Text>
+        <Text style={styles.annotationsTitle}>{t('planning.weekAnnotations')}</Text>
         {annotationsAvecContenu.map((item, index) => (
           <View key={index} style={styles.annotationItem}>
             <Text style={styles.annotationJour}>{item.jour}</Text>
@@ -946,7 +948,7 @@ const TeacherPlanningScreen = ({ route }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Chargement du planning...</Text>
+        <Text style={styles.loadingText}>{t('planning.loadingPlanning')}</Text>
       </View>
     );
   }
@@ -956,7 +958,7 @@ const TeacherPlanningScreen = ({ route }) => {
       <View style={styles.centerContainer}>
         <MaterialIcons name="error-outline" size={64} color="#F44336" />
         <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.errorSubtext}>Tirez vers le bas pour réessayer</Text>
+        <Text style={styles.errorSubtext}>{t('planning.pullToRetry')}</Text>
       </View>
     );
   }
@@ -965,7 +967,7 @@ const TeacherPlanningScreen = ({ route }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Chargement des horaires...</Text>
+        <Text style={styles.loadingText}>{t('planning.loadingTimeSlots')}</Text>
       </View>
     );
   }
@@ -975,7 +977,7 @@ const TeacherPlanningScreen = ({ route }) => {
       <View style={styles.centerContainer}>
         <MaterialIcons name="error-outline" size={64} color="#F44336" />
         <Text style={styles.errorText}>{timeSlotsError}</Text>
-        <Text style={styles.errorSubtext}>Tirez vers le bas pour réessayer</Text>
+        <Text style={styles.errorSubtext}>{t('planning.pullToRetry')}</Text>
       </View>
     );
   }
@@ -1006,16 +1008,16 @@ const TeacherPlanningScreen = ({ route }) => {
             
             <View style={styles.weekYearContainer}>
               <Text style={styles.weekYearText}>
-                Semaine {currentWeek} - {currentYear}
+                {t('planning.week')} {currentWeek} - {currentYear}
               </Text>
               {lastUpdate && (
                 <Text style={styles.lastUpdateText}>
-                  Dernière mise à jour : {lastUpdate.toLocaleTimeString()}
+                  {t('planning.lastUpdate')} : {lastUpdate.toLocaleTimeString()}
                 </Text>
               )}
               {!wsConnected && (
                 <Text style={styles.connectionStatus}>
-                  Reconnexion en cours...
+                  {t('planning.reconnecting')}
                 </Text>
               )}
             </View>
@@ -1052,7 +1054,7 @@ const TeacherPlanningScreen = ({ route }) => {
               <View style={styles.surveillanceRow}>
                 <View style={styles.surveillanceTimeCell}>
                   <Text style={styles.surveillanceTimeText}>
-                    Surveil.
+                    {t('planning.surveillance')}
                   </Text>
                 </View>
                 {days.map((day, dayIndex) => (
@@ -1091,7 +1093,7 @@ const TeacherPlanningScreen = ({ route }) => {
                     <View style={styles.surveillanceRow}>
                       <View style={styles.surveillanceTimeCell}>
                         <Text style={styles.surveillanceTimeText}>
-                          Surveil.
+                          {t('planning.surveillance')}
                         </Text>
                       </View>
                       {days.map((day, dayIndex) => (
@@ -1114,7 +1116,7 @@ const TeacherPlanningScreen = ({ route }) => {
               <View style={styles.surveillanceRow}>
                 <View style={styles.surveillanceTimeCell}>
                   <Text style={styles.surveillanceTimeText}>
-                    Surveil.
+                    {t('planning.surveillance')}
                   </Text>
                 </View>
                 {days.map((day, dayIndex) => (
@@ -1133,10 +1135,10 @@ const TeacherPlanningScreen = ({ route }) => {
           ) : (
             <View style={styles.centerContainer}>
               <Text style={styles.errorText}>
-                Aucun créneau horaire disponible
+                {t('planning.noTimeSlots')}
               </Text>
               <Text style={styles.errorSubtext}>
-                Créneaux chargés: {timeSlots ? timeSlots.length : 'null'}
+                {t('planning.timeSlotsLoaded')}: {timeSlots ? timeSlots.length : 'null'}
               </Text>
             </View>
           )}
@@ -1160,39 +1162,39 @@ const TeacherPlanningScreen = ({ route }) => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {selectedCours?.remplace ? 'Détails du remplacement' : 
-               selectedCours?.annule ? 'Cours annulé' : 'Détails du cours'}
+              {selectedCours?.remplace ? t('planning.replacementDetails') : 
+               selectedCours?.annule ? t('planning.cancelledCourse') : t('planning.courseDetails')}
             </Text>
             {selectedCours && (
               <>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Matière :</Text> {selectedCours.matiere}
+                  <Text style={styles.modalLabel}>{t('planning.subject')} :</Text> {selectedCours.matiere}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Classe :</Text> {selectedCours.classe}
+                  <Text style={styles.modalLabel}>{t('planning.class')} :</Text> {selectedCours.classe}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Salle :</Text> {selectedCours.salle}
+                  <Text style={styles.modalLabel}>{t('planning.room')} :</Text> {selectedCours.salle}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Jour :</Text> {selectedCours.jour}
+                  <Text style={styles.modalLabel}>{t('planning.day')} :</Text> {selectedCours.jour}
                 </Text>
                 <Text style={styles.modalText}>
-                  <Text style={styles.modalLabel}>Heure :</Text> {selectedCours.heure}
+                  <Text style={styles.modalLabel}>{t('planning.time')} :</Text> {selectedCours.heure}
                 </Text>
                 {selectedCours.commentaire && selectedCours.commentaire.trim() !== '' && (
                   <Text style={styles.modalText}>
-                    <Text style={styles.modalLabel}>Commentaire :</Text> {selectedCours.commentaire}
+                    <Text style={styles.modalLabel}>{t('planning.comment')} :</Text> {selectedCours.commentaire}
                   </Text>
                 )}
                 {selectedCours.remplace && selectedCours.remplacementInfo && (
                   <Text style={styles.modalText}>
-                    <Text style={styles.modalLabel}>Information de remplacement :</Text> {selectedCours.remplacementInfo}
+                    <Text style={styles.modalLabel}>{t('planning.replacementInfo')} :</Text> {selectedCours.remplacementInfo}
                   </Text>
                 )}
                 {selectedCours.annule && (
                   <Text style={[styles.modalText, { color: '#FF9800', fontStyle: 'italic' }]}>
-                    ⚠️ Ce cours a été annulé
+                    ⚠️ {t('planning.courseCancelled')}
                   </Text>
                 )}
               </>
@@ -1201,7 +1203,7 @@ const TeacherPlanningScreen = ({ route }) => {
               style={styles.modalButton}
               onPress={() => setModalVisible(false)}
             >
-              <Text style={styles.modalButtonText}>Fermer</Text>
+              <Text style={styles.modalButtonText}>{t('common.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
