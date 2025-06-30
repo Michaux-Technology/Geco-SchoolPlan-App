@@ -191,7 +191,7 @@ const HomeScreen = () => {
           </View>
         </View>
         <Text style={styles.schoolUrl}>{item.apiUrl}</Text>
-        <Text style={styles.username}>Utilisateur : {item.username}</Text>
+        <Text style={styles.username}>{t('common.user')} : {item.username}</Text>
       </TouchableOpacity>
     </View>
   );

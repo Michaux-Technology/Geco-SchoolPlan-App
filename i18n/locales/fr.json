@@ -18,7 +18,8 @@
     "ok": "OK",
     "retry": "Réessayer",
     "refresh": "Actualiser",
-    "undefined": "Non défini"
+    "undefined": "Non défini",
+    "user": "Utilisateur"
   },
   "navigation": {
     "home": "Liste des écoles",

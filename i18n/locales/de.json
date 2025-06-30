@@ -18,7 +18,8 @@
     "ok": "OK",
     "retry": "Wiederholen",
     "refresh": "Aktualisieren",
-    "undefined": "Nicht definiert"
+    "undefined": "Nicht definiert",
+    "user": "Benutzer"
   },
   "navigation": {
     "home": "Schulliste",

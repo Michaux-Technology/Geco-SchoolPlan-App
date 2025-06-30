@@ -18,7 +18,8 @@
     "ok": "OK",
     "retry": "Retry",
     "refresh": "Refresh",
-    "undefined": "Undefined"
+    "undefined": "Undefined",
+    "user": "User"
   },
   "navigation": {
     "home": "School List",
