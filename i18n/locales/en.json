@@ -151,5 +151,31 @@
     "noSchools": "No schools configured",
     "addSchoolHint": "Tap the button below to add a school",
     "addSchool": "Add a school"
+  },
+  "offline": {
+    "online": "Online",
+    "offline": "Offline",
+    "sync": "Sync",
+    "lastSync": "Last sync",
+    "neverSynced": "Never synced",
+    "justNow": "Just now",
+    "minutesAgo": "{{minutes}} min ago",
+    "hoursAgo": "{{hours}}h ago",
+    "daysAgo": "{{days}}d ago",
+    "noConnection": "No connection",
+    "noConnectionMessage": "Check your internet connection to sync data",
+    "offlineMessage": "Offline mode - Cached data",
+    "syncSuccess": "Sync successful",
+    "syncError": "Sync error",
+    "cacheCleared": "Cache cleared",
+    "cacheSize": "Cache size",
+    "clearCache": "Clear cache",
+    "clearCacheConfirm": "Do you really want to clear the cache?",
+    "clearCacheMessage": "All cached data will be deleted",
+    "dataFromCache": "Data from cache",
+    "dataFromServer": "Data from server",
+    "syncInProgress": "Syncing...",
+    "offlineMode": "Offline mode",
+    "onlineMode": "Online mode"
   }
 } 

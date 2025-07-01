@@ -151,5 +151,31 @@
     "noSchools": "Школы не настроены",
     "addSchoolHint": "Нажмите кнопку ниже, чтобы добавить школу",
     "addSchool": "Добавить школу"
+  },
+  "offline": {
+    "online": "Онлайн",
+    "offline": "Офлайн",
+    "sync": "Синхронизировать",
+    "lastSync": "Последняя синхронизация",
+    "neverSynced": "Никогда не синхронизировалось",
+    "justNow": "Только что",
+    "minutesAgo": "{{minutes}} мин назад",
+    "hoursAgo": "{{hours}}ч назад",
+    "daysAgo": "{{days}}д назад",
+    "noConnection": "Нет соединения",
+    "noConnectionMessage": "Проверьте подключение к интернету для синхронизации данных",
+    "offlineMessage": "Офлайн режим - Кэшированные данные",
+    "syncSuccess": "Синхронизация успешна",
+    "syncError": "Ошибка синхронизации",
+    "cacheCleared": "Кэш очищен",
+    "cacheSize": "Размер кэша",
+    "clearCache": "Очистить кэш",
+    "clearCacheConfirm": "Вы действительно хотите очистить кэш?",
+    "clearCacheMessage": "Все кэшированные данные будут удалены",
+    "dataFromCache": "Данные из кэша",
+    "dataFromServer": "Данные с сервера",
+    "syncInProgress": "Синхронизация...",
+    "offlineMode": "Офлайн режим",
+    "onlineMode": "Онлайн режим"
   }
 } 

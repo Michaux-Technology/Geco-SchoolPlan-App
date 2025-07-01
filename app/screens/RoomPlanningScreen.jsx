@@ -573,6 +573,10 @@ const RoomPlanningScreen = ({ route }) => {
       });
 
       setPlanning(filteredPlanning);
+      
+      // Mettre à jour le temps de dernière synchronisation
+      setLastSyncTime(new Date().toISOString());
+      console.log('⏰ Dernière synchronisation mise à jour:', new Date().toISOString());
     } catch (err) {
       console.error('Erreur détaillée lors du chargement du planning:', err);
       setError(err.message || 'Une erreur est survenue lors de la récupération du planning');

@@ -151,5 +151,31 @@
     "noSchools": "لا توجد مدارس مُعدة",
     "addSchoolHint": "اضغط على الزر أدناه لإضافة مدرسة",
     "addSchool": "إضافة مدرسة"
+  },
+  "offline": {
+    "online": "متصل",
+    "offline": "غير متصل",
+    "sync": "مزامنة",
+    "lastSync": "آخر مزامنة",
+    "neverSynced": "لم تتم المزامنة أبداً",
+    "justNow": "الآن",
+    "minutesAgo": "منذ {{minutes}} دقيقة",
+    "hoursAgo": "منذ {{hours}} ساعة",
+    "daysAgo": "منذ {{days}} يوم",
+    "noConnection": "لا يوجد اتصال",
+    "noConnectionMessage": "تحقق من اتصال الإنترنت لمزامنة البيانات",
+    "offlineMessage": "الوضع غير المتصل - البيانات المخزنة مؤقتاً",
+    "syncSuccess": "تمت المزامنة بنجاح",
+    "syncError": "خطأ في المزامنة",
+    "cacheCleared": "تم مسح التخزين المؤقت",
+    "cacheSize": "حجم التخزين المؤقت",
+    "clearCache": "مسح التخزين المؤقت",
+    "clearCacheConfirm": "هل تريد حقاً مسح التخزين المؤقت؟",
+    "clearCacheMessage": "سيتم حذف جميع البيانات المخزنة مؤقتاً",
+    "dataFromCache": "البيانات من التخزين المؤقت",
+    "dataFromServer": "البيانات من الخادم",
+    "syncInProgress": "جاري المزامنة...",
+    "offlineMode": "الوضع غير المتصل",
+    "onlineMode": "الوضع المتصل"
   }
 } 
