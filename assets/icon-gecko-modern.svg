@@ -1,0 +1,51 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#81C784;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4CAF50;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="eyeGradient" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA000;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Fond circulaire -->
+  <circle cx="512" cy="512" r="480" fill="url(#bgGradient)"/>
+  
+  <!-- Corps principal (forme de goutte) -->
+  <path d="M 512 200 C 350 200 250 350 250 500 C 250 650 350 800 512 800 C 674 800 774 650 774 500 C 774 350 674 200 512 200 Z" fill="url(#bodyGradient)"/>
+  
+  <!-- Tête -->
+  <ellipse cx="512" cy="320" rx="180" ry="120" fill="url(#bodyGradient)"/>
+  
+  <!-- Yeux -->
+  <circle cx="450" cy="300" r="25" fill="url(#eyeGradient)"/>
+  <circle cx="574" cy="300" r="25" fill="url(#eyeGradient)"/>
+  
+  <!-- Pupilles -->
+  <circle cx="450" cy="300" r="12" fill="#000000"/>
+  <circle cx="574" cy="300" r="12" fill="#000000"/>
+  
+  <!-- Reflets -->
+  <circle cx="455" cy="295" r="4" fill="#FFFFFF"/>
+  <circle cx="579" cy="295" r="4" fill="#FFFFFF"/>
+  
+  <!-- Pattes stylisées -->
+  <ellipse cx="350" cy="520" rx="30" ry="45" fill="url(#bodyGradient)"/>
+  <ellipse cx="674" cy="520" rx="30" ry="45" fill="url(#bodyGradient)"/>
+  <ellipse cx="350" cy="720" rx="30" ry="45" fill="url(#bodyGradient)"/>
+  <ellipse cx="674" cy="720" rx="30" ry="45" fill="url(#bodyGradient)"/>
+  
+  <!-- Queue stylisée -->
+  <path d="M 512 750 Q 480 820 420 900 Q 380 950 340 920 Q 320 900 340 880 Q 360 860 420 880 Z" fill="url(#bodyGradient)"/>
+  
+  <!-- Motifs décoratifs -->
+  <circle cx="512" cy="500" r="15" fill="#2E7D32" opacity="0.3"/>
+  <circle cx="512" cy="600" r="20" fill="#2E7D32" opacity="0.3"/>
+  <circle cx="512" cy="700" r="15" fill="#2E7D32" opacity="0.3"/>
+</svg> 
