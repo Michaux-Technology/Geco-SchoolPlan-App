@@ -3,6 +3,8 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Pl
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import ApiService from '../../utils/apiService';
+import useNetworkStatus from '../../hooks/useNetworkStatus';
 
 const ClassListScreen = ({ route }) => {
   const { school } = route.params;
@@ -12,6 +14,10 @@ const ClassListScreen = ({ route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [favorites, setFavorites] = useState(new Set());
   const navigation = useNavigation();
+  
+  // Variables pour la gestion offline
+  const { isOnline } = useNetworkStatus();
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   const sortClassesByFavorites = (classesList, favoritesSet) => {
     return [...classesList].sort((a, b) => {
@@ -77,27 +83,25 @@ const ClassListScreen = ({ route }) => {
         throw new Error('Token d\'authentification manquant. Veuillez vous reconnecter.');
       }
 
-      const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      const apiUrl = `${baseUrl}/api/mobile/classe`;
+      // Utiliser le service API centralisé
+      const result = await ApiService.makeRequest(school, '/api/mobile/classe');
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${school.token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 401) {
-          throw new Error('Session expirée ou token invalide. Veuillez vous reconnecter.');
-        }
-        throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur lors de la récupération des classes'}`);
+      if (result.fromCache) {
+        setIsOfflineMode(true);
+        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
+      } else {
+        setIsOfflineMode(false);
+        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
       }
-
-      const data = await response.json();
+      
+      if (!result.success) {
+        if (result.error === 'Aucune donnée disponible en mode hors ligne') {
+          throw new Error('Aucune donnée en cache. Veuillez vous connecter à internet pour charger les données.');
+        }
+        throw new Error(result.error || 'Erreur lors du chargement des classes');
+      }
+      
+      const data = result.data;
       
       if (!Array.isArray(data)) {
         throw new Error('Format de données invalide');
@@ -197,6 +201,14 @@ const ClassListScreen = ({ route }) => {
 
   return (
     <View style={styles.container}>
+      {/* Indicateur offline */}
+      {isOfflineMode && (
+        <View style={styles.offlineIndicator}>
+          <MaterialIcons name="wifi-off" size={16} color="#FF6B6B" />
+          <Text style={styles.offlineText}>Mode hors ligne - Données en cache</Text>
+        </View>
+      )}
+      
       <FlatList
         data={classes}
         renderItem={renderClassItem}
@@ -226,6 +238,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF3E0',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFCC02',
+  },
+  offlineText: {
+    fontSize: 12,
+    color: '#E65100',
+    marginLeft: 4,
+    fontWeight: '600',
   },
   centerContainer: {
     flex: 1,

@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, Platform, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, Platform, TouchableOpacity, Modal, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { io } from 'socket.io-client';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
+import useNetworkStatus from '../../hooks/useNetworkStatus';
+import OfflineStorage from '../../utils/offlineStorage';
+import OfflineIndicator from '../../components/OfflineIndicator';
+import ApiService from '../../utils/apiService';
+
+// Import conditionnel de socket.io-client
+let io = null;
+try {
+  const socketIoClient = require('socket.io-client');
+  io = socketIoClient.io;
+} catch (error) {
+  console.log('⚠️ socket.io-client non disponible:', error.message);
+}
 
 const RoomPlanningScreen = ({ route }) => {
   const { t } = useTranslation();
@@ -34,6 +47,12 @@ const RoomPlanningScreen = ({ route }) => {
   const [selectedCours, setSelectedCours] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [annotations, setAnnotations] = useState({});
+  
+  // Variables pour la gestion offline
+  const { isOnline } = useNetworkStatus();
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [syncInProgress, setSyncInProgress] = useState(false);
 
   const days = [t('planning.mon'), t('planning.tue'), t('planning.wed'), t('planning.thu'), t('planning.fri')];
 
@@ -83,15 +102,52 @@ const RoomPlanningScreen = ({ route }) => {
     initializeWeekAndYear();
     console.log('📅 Chargement des créneaux horaires...');
     loadTimeSlots();
-    console.log('🔌 Connexion WebSocket...');
-    connectSocket();
-    
-    return () => {
+  }, []);
+
+  // Effet pour la connexion WebSocket uniquement quand l'écran est visible
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔌 Écran RoomPlanningScreen visible - Connexion WebSocket...');
+      
+      // Vérifier que l'école a une URL valide avant de tenter la connexion
+      if (school && school.apiUrl) {
+        connectSocket();
+      } else {
+        console.log('⚠️ Pas d\'URL d\'école valide, WebSocket désactivé');
+      }
+      
+      return () => {
+        if (socket) {
+          console.log('🔌 Écran RoomPlanningScreen masqué - Déconnexion WebSocket');
+          // Désactiver la reconnexion automatique avant de déconnecter
+          socket.io.opts.reconnection = false;
+          socket.disconnect();
+          setSocket(null);
+          setWsConnected(false);
+        }
+      };
+    }, [school])
+  );
+
+  // Effet pour surveiller les changements de connectivité
+  useEffect(() => {
+    if (isOnline && isOfflineMode) {
+      console.log('🌐 Connexion rétablie - Tentative de reconnexion WebSocket');
+      setIsOfflineMode(false);
+      // Ne reconnecter que si on a un socket valide (écran visible)
+      if (socket) {
+        connectSocket();
+      }
+    } else if (!isOnline && !isOfflineMode) {
+      console.log('📱 Connexion perdue - Passage en mode hors ligne');
+      setIsOfflineMode(true);
       if (socket) {
         socket.disconnect();
+        setSocket(null);
+        setWsConnected(false);
       }
-    };
-  }, []);
+    }
+  }, [isOnline]);
 
   // Effet pour charger le planning quand la semaine ou l'année change
   useEffect(() => {
@@ -124,11 +180,49 @@ const RoomPlanningScreen = ({ route }) => {
     }
   }, [requestedWeek, requestedYear]);
 
-  const connectSocket = () => {
+  const connectSocket = async () => {
     console.log('🔌 Début de connectSocket()');
     console.log('🔌 school.apiUrl:', school.apiUrl);
     console.log('🔌 salle:', salle);
     console.log('🔌 salleNom:', salleNom);
+    
+    // Vérifications préventives multiples
+    if (!isOnline) {
+      console.log('📱 Mode hors ligne détecté - WebSocket désactivé');
+      setIsOfflineMode(true);
+      setWsConnected(false);
+      return;
+    }
+    
+    if (!school || !school.apiUrl) {
+      console.log('⚠️ Pas d\'URL d\'école valide - WebSocket désactivé');
+      return;
+    }
+    
+    // Vérifier que socket.io-client est disponible
+    if (!io) {
+      console.log('⚠️ socket.io-client non disponible - WebSocket désactivé');
+      setIsOfflineMode(true);
+      setWsConnected(false);
+      return;
+    }
+    
+    // Vérifier la connectivité réseau avant de tenter la connexion WebSocket
+    try {
+      const isServerAccessible = await ApiService.checkConnectivity(school.apiUrl);
+      
+      if (!isServerAccessible) {
+        console.log('📱 Serveur inaccessible - WebSocket désactivé');
+        setIsOfflineMode(true);
+        setWsConnected(false);
+        return;
+      }
+    } catch (error) {
+      console.log('❌ Erreur lors de la vérification de connectivité:', error.message);
+      setIsOfflineMode(true);
+      setWsConnected(false);
+      return;
+    }
     
     const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
     // Corriger l'URL WebSocket
@@ -327,27 +421,25 @@ const RoomPlanningScreen = ({ route }) => {
         throw new Error('Token d\'authentification manquant');
       }
 
-      const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      const apiUrl = `${baseUrl}/api/mobile/uhrs`;
+      console.log('📡 Chargement des créneaux horaires...');
+
+      // Utiliser le service API centralisé
+      const result = await ApiService.makeRequest(school, '/api/mobile/uhrs');
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${school.token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 401) {
-          throw new Error('Session expirée ou token invalide');
-        }
-        throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur lors de la récupération des créneaux horaires'}`);
+      if (result.fromCache) {
+        console.log('📱 Mode hors ligne - Créneaux horaires récupérés depuis le cache');
+      } else {
+        console.log('🌐 Mode en ligne - Créneaux horaires récupérés depuis le serveur');
       }
-
-      const data = await response.json();
+      
+      if (!result.success) {
+        if (result.error === 'Aucune donnée disponible en mode hors ligne') {
+          throw new Error('Aucun créneau horaire en cache. Veuillez vous connecter à internet pour charger les données.');
+        }
+        throw new Error(result.error || 'Erreur lors du chargement des créneaux horaires');
+      }
+      
+      const data = result.data;
       
       if (!Array.isArray(data)) {
         throw new Error('Format de données invalide pour les créneaux horaires');
@@ -394,34 +486,32 @@ const RoomPlanningScreen = ({ route }) => {
         throw new Error('Semaine ou année non définie');
       }
 
-      const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      const apiUrl = `${baseUrl}/api/mobile/planning?semaine=${requestedWeek}&annee=${requestedYear}`;
-      
-      console.log('📡 Chargement du planning via API REST:', {
-        url: apiUrl,
+      console.log('📡 Chargement du planning pour la salle:', {
+        salle: salleNom,
         semaine: requestedWeek,
-        annee: requestedYear,
-        salleNom
+        annee: requestedYear
       });
 
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${school.token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 401) {
-          throw new Error('Session expirée ou token invalide. Veuillez vous reconnecter.');
-        }
-        throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur lors de la récupération du planning'}`);
+      // Utiliser le service API centralisé
+      const endpoint = `/api/mobile/planning?semaine=${requestedWeek}&annee=${requestedYear}`;
+      const result = await ApiService.makeRequest(school, endpoint);
+      
+      if (result.fromCache) {
+        setIsOfflineMode(true);
+        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
+      } else {
+        setIsOfflineMode(false);
+        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
       }
-
-      const data = await response.json();
+      
+      if (!result.success) {
+        if (result.error === 'Aucune donnée disponible en mode hors ligne') {
+          throw new Error('Aucune donnée en cache. Veuillez vous connecter à internet pour charger les données.');
+        }
+        throw new Error(result.error || 'Erreur lors du chargement du planning');
+      }
+      
+      const data = result.data;
       
       console.log('📡 Données reçues de l\'API:', {
         type: typeof data,
@@ -685,6 +775,35 @@ const RoomPlanningScreen = ({ route }) => {
     setWeekOffset(0);
   }, []);
 
+  const handleManualSync = async () => {
+    if (!isOnline) {
+      Alert.alert(
+        t('offline.noConnection'),
+        t('offline.noConnectionMessage'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
+      return;
+    }
+
+    setSyncInProgress(true);
+    try {
+      await loadPlanning();
+      Alert.alert(
+        t('offline.syncSuccess'),
+        t('offline.dataFromServer'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
+    } catch (error) {
+      Alert.alert(
+        t('offline.syncError'),
+        error.message,
+        [{ text: t('common.ok'), style: 'default' }]
+      );
+    } finally {
+      setSyncInProgress(false);
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={styles.centerContainer}>
@@ -824,6 +943,14 @@ const RoomPlanningScreen = ({ route }) => {
         {/* Espace en bas pour éviter que le contenu soit caché par les boutons du smartphone */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Indicateur offline */}
+      <OfflineIndicator
+        schoolId={school?.id || school?.name}
+        salleId={salleNom}
+        onSyncPress={handleManualSync}
+        lastSyncTime={lastSyncTime}
+      />
 
       <Modal
         animationType="slide"
@@ -1143,7 +1270,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   bottomSpacing: {
-    height: 100,
+    height: 200, // Augmenter encore plus l'espace pour éviter que l'OfflineIndicator soit caché par les boutons
   },
   planningCellLast: {
     marginRight: 0,

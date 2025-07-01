@@ -151,5 +151,31 @@
     "noSchools": "Aucune école configurée",
     "addSchoolHint": "Appuyez sur le bouton ci-dessous pour ajouter une école",
     "addSchool": "Ajouter une école"
+  },
+  "offline": {
+    "online": "En ligne",
+    "offline": "Hors ligne",
+    "sync": "Synchroniser",
+    "lastSync": "Dernière synchronisation",
+    "neverSynced": "Jamais synchronisé",
+    "justNow": "À l'instant",
+    "minutesAgo": "Il y a {{minutes}} min",
+    "hoursAgo": "Il y a {{hours}}h",
+    "daysAgo": "Il y a {{days}}j",
+    "noConnection": "Pas de connexion",
+    "noConnectionMessage": "Vérifiez votre connexion internet pour synchroniser les données",
+    "offlineMessage": "Mode hors ligne - Données mises en cache",
+    "syncSuccess": "Synchronisation réussie",
+    "syncError": "Erreur de synchronisation",
+    "cacheCleared": "Cache vidé",
+    "cacheSize": "Taille du cache",
+    "clearCache": "Vider le cache",
+    "clearCacheConfirm": "Voulez-vous vraiment vider le cache ?",
+    "clearCacheMessage": "Toutes les données mises en cache seront supprimées",
+    "dataFromCache": "Données depuis le cache",
+    "dataFromServer": "Données depuis le serveur",
+    "syncInProgress": "Synchronisation en cours...",
+    "offlineMode": "Mode hors ligne",
+    "onlineMode": "Mode en ligne"
   }
 } 

@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, Platform, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, Platform, TouchableOpacity, Modal, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { io } from 'socket.io-client'; 
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
+import useNetworkStatus from '../../hooks/useNetworkStatus';
+import OfflineStorage from '../../utils/offlineStorage';
+import OfflineIndicator from '../../components/OfflineIndicator';
+import ApiService from '../../utils/apiService';
+
+// Import conditionnel de socket.io-client
+let io = null;
+try {
+  const socketIoClient = require('socket.io-client');
+  io = socketIoClient.io;
+} catch (error) {
+  console.log('⚠️ socket.io-client non disponible:', error.message);
+}
 
 const ClassPlanningScreen = ({ route }) => {
   const { t } = useTranslation();
@@ -35,6 +48,12 @@ const ClassPlanningScreen = ({ route }) => {
   const [selectedCours, setSelectedCours] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [annotations, setAnnotations] = useState({});
+  
+  // Variables pour la gestion offline
+  const { isOnline } = useNetworkStatus();
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [syncInProgress, setSyncInProgress] = useState(false);
 
   const days = [t('planning.mon'), t('planning.tue'), t('planning.wed'), t('planning.thu'), t('planning.fri')];
 
@@ -67,19 +86,56 @@ const ClassPlanningScreen = ({ route }) => {
   };
 
   useEffect(() => {
-    console.log('🚀 Montage du composant TeacherPlanningScreen');
+    console.log('🚀 Montage du composant ClassPlanningScreen');
     initializeWeekAndYear();
     console.log('📅 Chargement des créneaux horaires...');
     loadTimeSlots();
-    console.log('🔌 Connexion WebSocket...');
-    connectSocket();
-    
-    return () => {
+  }, []);
+
+  // Effet pour la connexion WebSocket uniquement quand l'écran est visible
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔌 Écran ClassPlanningScreen visible - Connexion WebSocket...');
+      
+      // Vérifier que l'école a une URL valide avant de tenter la connexion
+      if (school && school.apiUrl) {
+        connectSocket();
+      } else {
+        console.log('⚠️ Pas d\'URL d\'école valide, WebSocket désactivé');
+      }
+      
+      return () => {
+        if (socket) {
+          console.log('🔌 Écran ClassPlanningScreen masqué - Déconnexion WebSocket');
+          // Désactiver la reconnexion automatique avant de déconnecter
+          socket.io.opts.reconnection = false;
+          socket.disconnect();
+          setSocket(null);
+          setWsConnected(false);
+        }
+      };
+    }, [school])
+  );
+
+  // Effet pour surveiller les changements de connectivité
+  useEffect(() => {
+    if (isOnline && isOfflineMode) {
+      console.log('🌐 Connexion rétablie - Tentative de reconnexion WebSocket');
+      setIsOfflineMode(false);
+      // Ne reconnecter que si on a un socket valide (écran visible)
+      if (socket) {
+        connectSocket();
+      }
+    } else if (!isOnline && !isOfflineMode) {
+      console.log('📱 Connexion perdue - Passage en mode hors ligne');
+      setIsOfflineMode(true);
       if (socket) {
         socket.disconnect();
+        setSocket(null);
+        setWsConnected(false);
       }
-    };
-  }, []);
+    }
+  }, [isOnline]);
 
   // Effet pour charger le planning quand la semaine ou l'année change
   useEffect(() => {
@@ -134,11 +190,49 @@ const ClassPlanningScreen = ({ route }) => {
 
   // Suppression de l'effet de filtrage automatique pour éviter les conflits avec WebSocket
 
-  const connectSocket = () => {
+  const connectSocket = async () => {
     console.log('🔌 Début de connectSocket()');
     console.log('🔌 school.apiUrl:', school.apiUrl);
     console.log('🔌 classe:', classe);
     console.log('🔌 classeNom:', classeNom);
+    
+    // Vérifications préventives multiples
+    if (!isOnline) {
+      console.log('📱 Mode hors ligne détecté - WebSocket désactivé');
+      setIsOfflineMode(true);
+      setWsConnected(false);
+      return;
+    }
+    
+    if (!school || !school.apiUrl) {
+      console.log('⚠️ Pas d\'URL d\'école valide - WebSocket désactivé');
+      return;
+    }
+    
+    // Vérifier la connectivité réseau avant de tenter la connexion WebSocket
+    try {
+      const isServerAccessible = await ApiService.checkConnectivity(school.apiUrl);
+      
+      if (!isServerAccessible) {
+        console.log('📱 Serveur inaccessible - WebSocket désactivé');
+        setIsOfflineMode(true);
+        setWsConnected(false);
+        return;
+      }
+    } catch (error) {
+      console.log('❌ Erreur lors de la vérification de connectivité:', error.message);
+      setIsOfflineMode(true);
+      setWsConnected(false);
+      return;
+    }
+    
+    // Vérifier que socket.io-client est disponible
+    if (!io) {
+      console.log('⚠️ socket.io-client non disponible - WebSocket désactivé');
+      setIsOfflineMode(true);
+      setWsConnected(false);
+      return;
+    }
     
     const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
     // Corriger l'URL WebSocket
@@ -185,7 +279,7 @@ const ClassPlanningScreen = ({ route }) => {
         console.log('📡 Événement WebSocket reçu:', eventName, args);
       });
 
-      newSocket.on('planningUpdate', (data) => {
+      newSocket.on('planningUpdate', async (data) => {
         console.log('🔄 Mise à jour du planning reçue via WebSocket:', {
           hasPlanning: Boolean(data.planning),
           hasCours: Boolean(data.cours),
@@ -260,12 +354,32 @@ const ClassPlanningScreen = ({ route }) => {
           });
         }
 
+        // Sauvegarder les données en cache
+        const schoolId = school.id || school.name;
+        const classeId = classeNom;
+        const semaine = requestedWeek || currentWeek;
+        const annee = requestedYear || currentYear;
+        
+        if (semaine && annee) {
+          let planningToSave = [];
+          if (data.cours && Array.isArray(data.cours)) {
+            planningToSave = data.cours.filter(cours => cours.classe === classeNom);
+          } else if (data.planning && Array.isArray(data.planning)) {
+            planningToSave = data.planning.filter(cours => cours.classe === classeNom);
+          }
+          
+          if (planningToSave.length > 0) {
+            await OfflineStorage.savePlanningData(schoolId, classeId, planningToSave, semaine, annee);
+            console.log('💾 Planning sauvegardé en cache via WebSocket');
+          }
+        }
+        
         // Forcer un remontage du composant
         setViewKey(prev => prev + 1);
         console.log('🔄 Composant remonté pour afficher les nouvelles données');
       });
 
-      newSocket.on('coursUpdate', (data) => {
+      newSocket.on('coursUpdate', async (data) => {
         console.log('🔄 Mise à jour des cours reçue via WebSocket (coursUpdate):', {
           dataLength: data.length,
           timestamp: new Date().toISOString()
@@ -322,9 +436,18 @@ const ClassPlanningScreen = ({ route }) => {
           }
         }
         
-        // Forcer un remontage du composant
-        setViewKey(prev => prev + 1);
-        console.log('🔄 Composant remonté pour afficher les nouvelles données (coursUpdate)');
+                  // Sauvegarder les données en cache
+          const schoolId = school.id || school.name;
+          const classeId = classeNom;
+          
+          if (weekToUse && yearToUse && filteredPlanning.length > 0) {
+            await OfflineStorage.savePlanningData(schoolId, classeId, filteredPlanning, weekToUse, yearToUse);
+            console.log('💾 Planning sauvegardé en cache via coursUpdate');
+          }
+          
+          // Forcer un remontage du composant
+          setViewKey(prev => prev + 1);
+          console.log('🔄 Composant remonté pour afficher les nouvelles données (coursUpdate)');
       });
 
       newSocket.on('connect_error', (error) => {
@@ -351,9 +474,20 @@ const ClassPlanningScreen = ({ route }) => {
       });
 
       // Gestionnaires pour les annotations
-      newSocket.on('annotationsUpdate', (annotationsMap) => {
+      newSocket.on('annotationsUpdate', async (annotationsMap) => {
         console.log('📝 Annotations mises à jour via WebSocket:', annotationsMap);
         setAnnotations(annotationsMap);
+        
+        // Sauvegarder les annotations en cache
+        const schoolId = school.id || school.name;
+        const classeId = classeNom;
+        const semaine = requestedWeek || currentWeek;
+        const annee = requestedYear || currentYear;
+        
+        if (semaine && annee) {
+          await OfflineStorage.saveAnnotations(schoolId, classeId, semaine, annee, annotationsMap);
+          console.log('💾 Annotations sauvegardées en cache');
+        }
       });
 
       newSocket.on('annotationError', (error) => {
@@ -372,26 +506,30 @@ const ClassPlanningScreen = ({ route }) => {
     try {
       setLoadingTimeSlots(true);
       setTimeSlotsError(null);
-      
-      let baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      
-      const apiUrl = `${baseUrl}/api/mobile/uhrs`;
 
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${school.token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erreur ${response.status}: ${errorText}`);
+      if (!school?.token) {
+        throw new Error('Token d\'authentification manquant');
       }
 
-      const data = await response.json();
+      console.log('📡 Chargement des créneaux horaires...');
+
+      // Utiliser le service API centralisé
+      const result = await ApiService.makeRequest(school, '/api/mobile/uhrs');
+      
+      if (result.fromCache) {
+        console.log('📱 Mode hors ligne - Créneaux horaires récupérés depuis le cache');
+      } else {
+        console.log('🌐 Mode en ligne - Créneaux horaires récupérés depuis le serveur');
+      }
+      
+      if (!result.success) {
+        if (result.error === 'Aucune donnée disponible en mode hors ligne') {
+          throw new Error('Aucun créneau horaire en cache. Veuillez vous connecter à internet pour charger les données.');
+        }
+        throw new Error(result.error || 'Erreur lors du chargement des créneaux horaires');
+      }
+      
+      const data = result.data;
       
       if (Array.isArray(data) && data.length > 0) {
         // Formater les créneaux horaires pour qu'ils aient la même structure
@@ -401,29 +539,46 @@ const ClassPlanningScreen = ({ route }) => {
           fin: slot.ende
         }));
         setTimeSlots(formattedTimeSlots);
+        console.log('✅ Créneaux horaires chargés:', formattedTimeSlots.length);
       } else {
         throw new Error('Aucun horaire disponible');
       }
     } catch (err) {
-      setTimeSlotsError(err.message);
+      console.error('❌ Erreur lors du chargement des créneaux horaires:', err);
+      setTimeSlotsError(err.message || 'Erreur lors du chargement des créneaux horaires');
     } finally {
       setLoadingTimeSlots(false);
     }
   };
 
-  const loadAnnotations = () => {
-    if (socket && (requestedWeek || currentWeek) && (requestedYear || currentYear)) {
+  const loadAnnotations = async () => {
+    if (!isOfflineMode && socket && (requestedWeek || currentWeek) && (requestedYear || currentYear)) {
       const semaine = requestedWeek || currentWeek;
       const annee = requestedYear || currentYear;
       
       console.log('📝 Demande des annotations pour la semaine', semaine, 'et l\'année', annee);
       socket.emit('getAnnotations', { semaine, annee });
+    } else if (isOfflineMode) {
+      // En mode offline, essayer de récupérer les annotations depuis le cache
+      const schoolId = school.id || school.name;
+      const classeId = classeNom;
+      const semaine = requestedWeek || currentWeek;
+      const annee = requestedYear || currentYear;
+      
+      if (semaine && annee) {
+        console.log('📝 Récupération des annotations depuis le cache offline');
+        const cachedAnnotations = await OfflineStorage.getAnnotations(schoolId, classeId, semaine, annee);
+        if (cachedAnnotations) {
+          setAnnotations(cachedAnnotations);
+        }
+      }
     }
   };
 
   const loadPlanning = async () => {
     try {
       setError(null);
+      setSyncInProgress(true);
 
       if (!school?.token) {
         throw new Error('Token d\'authentification manquant');
@@ -434,33 +589,37 @@ const ClassPlanningScreen = ({ route }) => {
         return;
       }
 
-      const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      const apiUrl = `${baseUrl}/api/mobile/planning/classe/${classeNom}?semaine=${requestedWeek}&annee=${requestedYear}`;
+      const schoolId = school.id || school.name;
+      const classeId = classeNom;
 
       console.log('📡 Chargement du planning pour la classe:', {
         classe: classeNom,
-        apiUrl: apiUrl,
         semaine: requestedWeek,
         annee: requestedYear
       });
 
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${school.token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erreur ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
+      // Utiliser le service API centralisé
+      const endpoint = `/api/mobile/planning/classe/${classeNom}?semaine=${requestedWeek}&annee=${requestedYear}`;
+      const result = await ApiService.makeRequest(school, endpoint);
       
-      console.log('📚 Données reçues du serveur:', {
+      if (result.fromCache) {
+        setIsOfflineMode(true);
+        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
+      } else {
+        setIsOfflineMode(false);
+        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
+      }
+      
+      if (!result.success) {
+        if (result.error === 'Aucune donnée disponible en mode hors ligne') {
+          throw new Error('Aucune donnée en cache. Veuillez vous connecter à internet pour charger les données.');
+        }
+        throw new Error(result.error || 'Erreur lors du chargement du planning');
+      }
+      
+      const data = result.data;
+      
+      console.log('📚 Données reçues:', {
         nombreCours: data.cours?.length || 0,
         nombreUhrs: data.uhrs?.length || 0,
         cours: data.cours,
@@ -480,7 +639,8 @@ const ClassPlanningScreen = ({ route }) => {
         }
       }
       
-      setPlanning(data.cours || []);
+      const planningData = data.cours || [];
+      setPlanning(planningData);
       
       // Mettre à jour les créneaux horaires si disponibles
       if (data.uhrs && Array.isArray(data.uhrs)) {
@@ -490,13 +650,25 @@ const ClassPlanningScreen = ({ route }) => {
           fin: slot.ende
         }));
         setTimeSlots(formattedTimeSlots);
+        
+        // Sauvegarder les créneaux horaires en cache
+        await OfflineStorage.saveTimeSlots(schoolId, formattedTimeSlots);
       }
       
+      // Mettre à jour le timestamp de synchronisation
+      const syncTime = Date.now();
+      setLastSyncTime(syncTime);
+      
+      // Charger les annotations après avoir chargé le planning
+      loadAnnotations();
+      
     } catch (err) {
+      console.error('❌ Erreur lors du chargement du planning:', err);
       setError(err.message || 'Erreur lors du chargement du planning');
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setSyncInProgress(false);
     }
   };
 
@@ -526,6 +698,35 @@ const ClassPlanningScreen = ({ route }) => {
     setRefreshing(true);
     loadPlanning();
   }, []);
+
+  const handleManualSync = async () => {
+    if (!isOnline) {
+      Alert.alert(
+        t('offline.noConnection'),
+        t('offline.noConnectionMessage'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
+      return;
+    }
+
+    setSyncInProgress(true);
+    try {
+      await loadPlanning();
+      Alert.alert(
+        t('offline.syncSuccess'),
+        t('offline.dataFromServer'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
+    } catch (error) {
+      Alert.alert(
+        t('offline.syncError'),
+        error.message,
+        [{ text: t('common.ok'), style: 'default' }]
+      );
+    } finally {
+      setSyncInProgress(false);
+    }
+  };
 
   const getCoursByDayAndHour = (day, hour) => {
     // Convertir le jour abrégé en jour complet
@@ -855,6 +1056,14 @@ const ClassPlanningScreen = ({ route }) => {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
+      {/* Indicateur offline */}
+      <OfflineIndicator
+        schoolId={school?.id || school?.name}
+        classeId={classeNom}
+        onSyncPress={handleManualSync}
+        lastSyncTime={lastSyncTime}
+      />
+
       <Modal
         animationType="slide"
         transparent={true}
@@ -1179,7 +1388,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   bottomSpacing: {
-    height: 100,
+    height: 200, // Augmenter encore plus l'espace pour éviter que l'OfflineIndicator soit caché par les boutons
   },
   classeContainer: {
     flexDirection: 'row',

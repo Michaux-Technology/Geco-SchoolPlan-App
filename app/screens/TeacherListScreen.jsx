@@ -3,6 +3,8 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Pl
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import ApiService from '../../utils/apiService';
+import useNetworkStatus from '../../hooks/useNetworkStatus';
 
 const TeacherListScreen = ({ route }) => {
   const { school } = route.params;
@@ -12,6 +14,10 @@ const TeacherListScreen = ({ route }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [favorites, setFavorites] = useState(new Set());
+  
+  // Variables pour la gestion offline
+  const { isOnline } = useNetworkStatus();
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   const sortTeachersByFavorites = (teachersList, favoritesSet) => {
     return [...teachersList].sort((a, b) => {
@@ -152,64 +158,25 @@ const TeacherListScreen = ({ route }) => {
         throw new Error('Token d\'authentification manquant. Veuillez vous reconnecter.');
       }
 
-      const baseUrl = school.apiUrl.endsWith('/') ? school.apiUrl.slice(0, -1) : school.apiUrl;
-      const apiUrl = `${baseUrl}/api/mobile/enseignant`;
+      // Utiliser le service API centralisé
+      const result = await ApiService.makeRequest(school, '/api/mobile/enseignant');
       
-      console.log('Tentative de connexion à:', apiUrl);
-      console.log('Token utilisé:', school.token ? `${school.token.substring(0, 10)}...` : 'manquant');
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${school.token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log('Réponse du serveur:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorText: errorText
-        });
-        
-        if (response.status === 401) {
-          // Essayer de rafraîchir le token
-          try {
-            console.log('Tentative de rafraîchissement du token...');
-            const newToken = await refreshToken();
-            console.log('Nouveau token obtenu:', newToken ? `${newToken.substring(0, 10)}...` : 'manquant');
-            
-            // Réessayer la requête avec le nouveau token
-            const retryResponse = await fetch(apiUrl, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${newToken}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-              },
-            });
-            
-            if (!retryResponse.ok) {
-              throw new Error('Session expirée. Veuillez vous reconnecter.');
-            }
-            
-            const data = await retryResponse.json();
-            const favsToUse = currentFavorites || favorites;
-            const sortedTeachers = sortTeachersByFavorites(data, favsToUse);
-            setTeachers(sortedTeachers);
-            return;
-          } catch (refreshError) {
-            console.error('Erreur lors du rafraîchissement du token:', refreshError);
-            throw new Error('Session expirée. Veuillez vous reconnecter.');
-          }
-        }
-        throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur lors de la récupération des enseignants'}`);
+      if (result.fromCache) {
+        setIsOfflineMode(true);
+        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
+      } else {
+        setIsOfflineMode(false);
+        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
       }
-
-      const data = await response.json();
+      
+      if (!result.success) {
+        if (result.error === 'Aucune donnée disponible en mode hors ligne') {
+          throw new Error('Aucune donnée en cache. Veuillez vous connecter à internet pour charger les données.');
+        }
+        throw new Error(result.error || 'Erreur lors du chargement des enseignants');
+      }
+      
+      const data = result.data;
       
       if (!Array.isArray(data)) {
         throw new Error('Format de données invalide');
@@ -676,6 +643,14 @@ const TeacherListScreen = ({ route }) => {
 
   return (
     <View style={styles.container}>
+      {/* Indicateur offline */}
+      {isOfflineMode && (
+        <View style={styles.offlineIndicator}>
+          <MaterialIcons name="wifi-off" size={16} color="#FF6B6B" />
+          <Text style={styles.offlineText}>Mode hors ligne - Données en cache</Text>
+        </View>
+      )}
+      
       <FlatList
         data={teachers}
         renderItem={renderTeacherItem}
@@ -705,6 +680,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF3E0',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFCC02',
+  },
+  offlineText: {
+    fontSize: 12,
+    color: '#E65100',
+    marginLeft: 4,
+    fontWeight: '600',
   },
   centerContainer: {
     flex: 1,
