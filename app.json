@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptiveIcon.png",
+        "foregroundImage": "./assets/icon-gecko-modern.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [],
@@ -28,11 +28,19 @@
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [],
+    "plugins": [
+      "expo-router",
+      "expo-web-browser"
+    ],
     "scheme": "geco-schoolplan-app",
     "newArchEnabled": true,
     "developmentClient": {
       "silentLaunch": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b9fd9bdd-847a-4621-9a6f-32ec1feacfbb"
+      }
     }
   }
 }

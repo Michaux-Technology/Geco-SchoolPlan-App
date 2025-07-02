@@ -1151,6 +1151,7 @@ io.on('connection', (socket) => {
       );
       surveillances = await Surveillance.find({}).populate('enseignant');
       io.emit('planningUpdate', { surveillances });
+      socket.emit('surveillanceUpdated');
     } catch (error) {
       socket.emit('error', error.message);
     }
@@ -1161,6 +1162,7 @@ io.on('connection', (socket) => {
       await Surveillance.findByIdAndDelete(surveillanceId);
       surveillances = await Surveillance.find({}).populate('enseignant');
       io.emit('planningUpdate', { surveillances });
+      socket.emit('surveillanceDeleted');
     } catch (error) {
       socket.emit('error', error.message);
     }
@@ -1444,30 +1446,54 @@ io.on('connection', (socket) => {
 
   socket.on('addUhr', async (uhrData) => {
     try {
-      await Uhr.create(uhrData);
+      console.log('➕ Événement addUhr reçu:', uhrData);
+      
+      const newUhr = await Uhr.create(uhrData);
+      console.log('✅ Nouvelle tranche horaire créée:', newUhr);
+      
       zeitslots = await Uhr.find({});
+      console.log('📤 Envoi de la mise à jour des tranches horaires:', zeitslots);
       io.emit('uhrsUpdate', zeitslots);
+      
+      console.log('✅ Ajout de tranche horaire envoyé avec succès');
     } catch (error) {
+      console.error('❌ Erreur lors de l\'ajout de la tranche horaire:', error);
       socket.emit('error', error.message);
     }
   });
 
   socket.on('updateUhr', async (uhrData) => {
     try {
-      await Uhr.findByIdAndUpdate(uhrData._id, uhrData, { new: true });
+      console.log('🕐 Événement updateUhr reçu:', uhrData);
+      
+      const updatedUhr = await Uhr.findByIdAndUpdate(uhrData._id, uhrData, { new: true });
+      console.log('✅ Tranche horaire mise à jour:', updatedUhr);
+      
       zeitslots = await Uhr.find({});
+      console.log('📤 Envoi de la mise à jour des tranches horaires:', zeitslots);
       io.emit('uhrsUpdate', zeitslots);
+      
+      console.log('✅ Mise à jour des tranches horaires envoyée avec succès');
     } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de la tranche horaire:', error);
       socket.emit('error', error.message);
     }
   });
 
   socket.on('deleteUhr', async (uhrId) => {
     try {
-      await Uhr.findByIdAndDelete(uhrId);
+      console.log('🗑️ Événement deleteUhr reçu pour l\'ID:', uhrId);
+      
+      const deletedUhr = await Uhr.findByIdAndDelete(uhrId);
+      console.log('✅ Tranche horaire supprimée:', deletedUhr);
+      
       zeitslots = await Uhr.find({});
+      console.log('📤 Envoi de la mise à jour des tranches horaires:', zeitslots);
       io.emit('uhrsUpdate', zeitslots);
+      
+      console.log('✅ Suppression de tranche horaire envoyée avec succès');
     } catch (error) {
+      console.error('❌ Erreur lors de la suppression de la tranche horaire:', error);
       socket.emit('error', error.message);
     }
   });
