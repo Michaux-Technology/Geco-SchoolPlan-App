@@ -88,10 +88,8 @@ const RoomListScreen = ({ route }) => {
       
       if (result.fromCache) {
         setIsOfflineMode(true);
-        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
       } else {
         setIsOfflineMode(false);
-        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
       }
       
       if (!result.success) {
@@ -100,7 +98,7 @@ const RoomListScreen = ({ route }) => {
         }
         throw new Error(result.error || 'Erreur lors du chargement des salles');
       }
-      
+
       const data = result.data;
       
       if (!Array.isArray(data)) {

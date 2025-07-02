@@ -12,13 +12,6 @@ const useNetworkStatus = () => {
       setIsConnected(state.isConnected);
       setConnectionType(state.type);
       setIsInternetReachable(state.isInternetReachable);
-      
-      console.log('🌐 État de la connexion:', {
-        isConnected: state.isConnected,
-        type: state.type,
-        isInternetReachable: state.isInternetReachable,
-        details: state.details
-      });
     };
 
     // Obtenir l'état initial de la connexion

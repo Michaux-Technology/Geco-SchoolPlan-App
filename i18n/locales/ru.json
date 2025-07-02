@@ -97,7 +97,10 @@
     "comment": "Комментарий",
     "replacementInfo": "Информация о замене",
     "notDefined": "Не определено",
-    "notDefinedF": "Не определено"
+    "notDefinedF": "Не определено",
+    "currentTime": "Текущее время",
+    "noCurrentActivity": "Нет текущей активности",
+    "outsideTimeSlots": "Вне временных слотов"
   },
   "settings": {
     "title": "Настройки",

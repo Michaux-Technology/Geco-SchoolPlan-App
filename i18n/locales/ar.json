@@ -97,7 +97,10 @@
     "comment": "تعليق",
     "replacementInfo": "معلومات الاستبدال",
     "notDefined": "غير محدد",
-    "notDefinedF": "غير محددة"
+    "notDefinedF": "غير محددة",
+    "currentTime": "الوقت الحالي",
+    "noCurrentActivity": "لا توجد نشاط حالي",
+    "outsideTimeSlots": "خارج الفترات الزمنية"
   },
   "settings": {
     "title": "الإعدادات",

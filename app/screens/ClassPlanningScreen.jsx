@@ -19,14 +19,10 @@ try {
 
 const ClassPlanningScreen = ({ route }) => {
   const { t } = useTranslation();
-  console.log('🚀 ClassPlanningScreen - Paramètres reçus:', route.params);
   const { school, classe } = route.params;
-  console.log('🚀 ClassPlanningScreen - school:', school?.apiUrl);
-  console.log('🚀 ClassPlanningScreen - classe:', classe);
   
   // Extraire le nom de la classe (peut être un string ou un objet)
   const classeNom = typeof classe === 'string' ? classe : classe.nom;
-  console.log('🚀 ClassPlanningScreen - classeNom:', classeNom);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -54,6 +50,10 @@ const ClassPlanningScreen = ({ route }) => {
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [syncInProgress, setSyncInProgress] = useState(false);
+  
+  // Variables pour l'indicateur de cours actuel
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTimeSlot, setCurrentTimeSlot] = useState(null);
 
   const days = [t('planning.mon'), t('planning.tue'), t('planning.wed'), t('planning.thu'), t('planning.fri')];
 
@@ -63,50 +63,80 @@ const ClassPlanningScreen = ({ route }) => {
     const initialWeek = getWeekNumber(today);
     const initialYear = today.getFullYear();
     
-    console.log('🔄 Initialisation de la semaine et année:', {
-      date: today.toISOString(),
-      semaine: initialWeek,
-      annee: initialYear
-    });
+
     
     setCurrentWeek(initialWeek);
     setCurrentYear(initialYear);
     setRequestedWeek(initialWeek);
     setRequestedYear(initialYear);
 
-    // Vérifier après le setState
-    setTimeout(() => {
-      console.log('🔍 Vérification des valeurs après initialisation:', {
-        currentWeek,
-        currentYear,
-        requestedWeek,
-        requestedYear
-      });
-    }, 100);
+
   };
 
   useEffect(() => {
-    console.log('🚀 Montage du composant ClassPlanningScreen');
     initializeWeekAndYear();
-    console.log('📅 Chargement des créneaux horaires...');
     loadTimeSlots();
+  }, []);
+
+  // Effet pour mettre à jour l'heure actuelle et déterminer le créneau horaire actuel
+  useEffect(() => {
+    const updateCurrentTime = () => {
+      const now = new Date();
+      setCurrentTime(now);
+      
+      // Déterminer le créneau horaire actuel
+      if (timeSlots && timeSlots.length > 0) {
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+        
+
+        
+        // Trouver le créneau horaire actuel
+        const foundTimeSlot = timeSlots.find(slot => {
+          const [startHour, startMinute] = slot.debut.split(':').map(Number);
+          const [endHour, endMinute] = slot.fin.split(':').map(Number);
+          
+          const startTime = startHour * 60 + startMinute;
+          const endTime = endHour * 60 + endMinute;
+          const currentTime = currentHour * 60 + currentMinute;
+          
+          const isInSlot = currentTime >= startTime && currentTime <= endTime;
+          
+
+          
+          return isInSlot;
+        });
+        
+        setCurrentTimeSlot(foundTimeSlot || null);
+      }
+    };
+    
+    // Mettre à jour immédiatement
+    updateCurrentTime();
+    
+    // Mettre à jour toutes les minutes
+    const interval = setInterval(updateCurrentTime, 60000);
+    
+    return () => clearInterval(interval);
+  }, [timeSlots]);
+
+  // Effet séparé pour mettre à jour l'heure immédiatement au montage
+  useEffect(() => {
+    const now = new Date();
+    setCurrentTime(now);
   }, []);
 
   // Effet pour la connexion WebSocket uniquement quand l'écran est visible
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔌 Écran ClassPlanningScreen visible - Connexion WebSocket...');
-      
       // Vérifier que l'école a une URL valide avant de tenter la connexion
       if (school && school.apiUrl) {
         connectSocket();
-      } else {
-        console.log('⚠️ Pas d\'URL d\'école valide, WebSocket désactivé');
       }
       
       return () => {
         if (socket) {
-          console.log('🔌 Écran ClassPlanningScreen masqué - Déconnexion WebSocket');
           // Désactiver la reconnexion automatique avant de déconnecter
           socket.io.opts.reconnection = false;
           socket.disconnect();
@@ -120,14 +150,12 @@ const ClassPlanningScreen = ({ route }) => {
   // Effet pour surveiller les changements de connectivité
   useEffect(() => {
     if (isOnline && isOfflineMode) {
-      console.log('🌐 Connexion rétablie - Tentative de reconnexion WebSocket');
       setIsOfflineMode(false);
       // Ne reconnecter que si on a un socket valide (écran visible)
       if (socket) {
         connectSocket();
       }
     } else if (!isOnline && !isOfflineMode) {
-      console.log('📱 Connexion perdue - Passage en mode hors ligne');
       setIsOfflineMode(true);
       if (socket) {
         socket.disconnect();
@@ -139,73 +167,41 @@ const ClassPlanningScreen = ({ route }) => {
 
   // Effet pour charger le planning quand la semaine ou l'année change
   useEffect(() => {
-    console.log('📅 Changement de semaine/année détecté:', {
-      requestedWeek,
-      requestedYear,
-      currentWeek,
-      currentYear,
-      planningType: typeof planning,
-      planningLength: planning ? planning.length : 'undefined'
-    });
-
     if (requestedWeek && requestedYear) {
-      console.log('✅ Chargement du planning avec:', {
-        semaine: requestedWeek,
-        annee: requestedYear
-      });
       
       // Ne charger via API REST que si on n'a pas de données WebSocket
       if (!planning || planning.length === 0) {
-        console.log('📡 Aucune donnée WebSocket disponible, chargement via API REST');
         loadPlanning();
       } else {
-        console.log('📡 Données WebSocket disponibles, filtrage des données existantes');
         // Vérifier que planning est un tableau avant de le filtrer
         if (Array.isArray(planning)) {
           const filteredPlanning = planning.filter(cours => 
             cours.semaine === requestedWeek && 
             cours.annee === requestedYear
           );
-          console.log('📅 Planning filtré depuis les données WebSocket:', {
-            semaineDemandee: requestedWeek,
-            anneeDemandee: requestedYear,
-            nombreCours: filteredPlanning.length
-          });
           setPlanning(filteredPlanning);
         } else {
-          console.log('⚠️ Planning n\'est pas un tableau, chargement via API REST');
           loadPlanning();
         }
       }
       
       // Charger les annotations pour la semaine demandée
       loadAnnotations();
-    } else {
-      console.log('❌ Impossible de charger le planning - paramètres manquants:', {
-        semaine: requestedWeek,
-        annee: requestedYear
-      });
     }
   }, [requestedWeek, requestedYear]);
 
   // Suppression de l'effet de filtrage automatique pour éviter les conflits avec WebSocket
 
   const connectSocket = async () => {
-    console.log('🔌 Début de connectSocket()');
-    console.log('🔌 school.apiUrl:', school.apiUrl);
-    console.log('🔌 classe:', classe);
-    console.log('🔌 classeNom:', classeNom);
     
     // Vérifications préventives multiples
     if (!isOnline) {
-      console.log('📱 Mode hors ligne détecté - WebSocket désactivé');
       setIsOfflineMode(true);
       setWsConnected(false);
       return;
     }
     
     if (!school || !school.apiUrl) {
-      console.log('⚠️ Pas d\'URL d\'école valide - WebSocket désactivé');
       return;
     }
     
@@ -257,21 +253,14 @@ const ClassPlanningScreen = ({ route }) => {
         timeout: 20000,
       });
 
-      console.log('🔌 Socket créé:', newSocket.id);
-
       newSocket.on('connect', () => {
-        console.log('🔌 Connecté au serveur Socket.IO');
-        console.log('🔌 Socket ID:', newSocket.id);
-        console.log('🔌 Socket URL:', newSocket.io.uri);
         setWsConnected(true);
         setError(null);
         
         // S'abonner aux mises à jour du planning pour cette classe
-        console.log('📡 Envoi de l\'abonnement pour la classe:', classeNom);
         newSocket.emit('subscribe', {
           classeId: classeNom
         });
-        console.log('✅ Abonnement envoyé');
       });
 
       // Log pour tous les événements reçus
@@ -604,10 +593,9 @@ const ClassPlanningScreen = ({ route }) => {
       
       if (result.fromCache) {
         setIsOfflineMode(true);
-        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
+
       } else {
         setIsOfflineMode(false);
-        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
       }
       
       if (!result.success) {
@@ -766,7 +754,7 @@ const ClassPlanningScreen = ({ route }) => {
 
   const renderTimeCell = (timeSlot) => {
     return (
-      <View style={[styles.timeCell, { width: 45 }]}>
+      <View style={[styles.timeCellSlot, { width: 45 }]}>
         <Text style={styles.timeTextStart}>
           {timeSlot.debut}
         </Text>
@@ -866,7 +854,7 @@ const ClassPlanningScreen = ({ route }) => {
     const cours = getCoursByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`);
 
     return (
-      <View style={styles.planningCell}>
+      <View>
         {renderCours(cours)}
       </View>
     );
@@ -1024,17 +1012,42 @@ const ClassPlanningScreen = ({ route }) => {
             timeSlots.map((timeSlot, hourIndex) => (
               <View key={hourIndex} style={styles.timeRow}>
                 {renderTimeCell(timeSlot)}
-                {days.map((day, dayIndex) => (
-                  <View 
-                    key={dayIndex} 
-                    style={[
-                      styles.planningCell,
-                      dayIndex === days.length - 1 && styles.planningCellLast
-                    ]}
-                  >
-                    {renderPlanningCell(day, timeSlot)}
-                  </View>
-                ))}
+                {days.map((day, dayIndex) => {
+                  // Vérifier si c'est le créneau horaire actuel ET le jour actuel ET la semaine actuelle
+                  const isCurrentTimeSlot = currentTimeSlot && 
+                    currentTimeSlot.debut === timeSlot.debut && 
+                    currentTimeSlot.fin === timeSlot.fin;
+
+                  const currentDay = currentTime.toLocaleDateString('fr-FR', { weekday: 'long' });
+                  const currentDayAbbr = {
+                    'lundi': t('planning.mon'),
+                    'mardi': t('planning.tue'),
+                    'mercredi': t('planning.wed'),
+                    'jeudi': t('planning.thu'),
+                    'vendredi': t('planning.fri')
+                  }[currentDay.toLowerCase()];
+                  
+                  const isCurrentDay = day === currentDayAbbr;
+                  
+                  // Vérifier si c'est la semaine actuelle
+                  const currentWeekNumber = getWeekNumber(currentTime);
+                  const currentYearNumber = currentTime.getFullYear();
+                  const isCurrentWeek = currentWeek === currentWeekNumber && currentYear === currentYearNumber;
+                  
+                  const isCurrent = isCurrentTimeSlot && isCurrentDay && isCurrentWeek;
+
+                  return (
+                    <View 
+                      key={dayIndex} 
+                      style={[
+                        isCurrent ? styles.planningCellActive : styles.planningCell,
+                        dayIndex === days.length - 1 && styles.planningCellLast
+                      ]}
+                    >
+                      {renderPlanningCell(day, timeSlot)}
+                    </View>
+                  );
+                })}
               </View>
             ))
           ) : (
@@ -1160,6 +1173,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  timeCellSlot: {
+    width: 45,
+    minHeight: 80,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    backgroundColor: '#1976D2',
+    borderRadius: 8,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   dayCell: {
     flex: 1,
     padding: 8,
@@ -1179,6 +1203,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
     padding: 0,
+  },
+  planningCellActive: {
+    flex: 1,
+    minHeight: 80,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    marginRight: 8,
+    padding: 0,
+    borderWidth: 2,
+    borderColor: '#2196F3',
   },
   planningCellLast: {
     marginRight: 0,
@@ -1209,7 +1243,7 @@ const styles = StyleSheet.create({
   coursItem: {
     backgroundColor: 'transparent',
     borderRadius: 4,
-    padding: 0,
+    padding: 2,
     marginBottom: 2,
     overflow: 'visible',
   },
@@ -1292,6 +1326,8 @@ const styles = StyleSheet.create({
   coursAnnule: {
     borderLeftWidth: 3,
     borderLeftColor: '#FF9800',
+    paddingLeft: 2,
+    marginLeft: 1,
   },
   coursAnnuleText: {
     color: '#FF9800',
@@ -1300,6 +1336,8 @@ const styles = StyleSheet.create({
   coursRemplacement: {
     borderLeftWidth: 3,
     borderLeftColor: '#4CAF50',
+    paddingLeft: 2,
+    marginLeft: 1,
   },
   coursRemplacementText: {
     color: '#4CAF50',

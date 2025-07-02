@@ -32,8 +32,8 @@ const RoomPlanningScreen = ({ route }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [planning, setPlanning] = useState([]);
-  const [currentWeek, setCurrentWeek] = useState(26); // Valeur par défaut
-  const [currentYear, setCurrentYear] = useState(2025); // Valeur par défaut
+  const [currentWeek, setCurrentWeek] = useState(null);
+  const [currentYear, setCurrentYear] = useState(null);
   const [requestedWeek, setRequestedWeek] = useState(26); // Valeur par défaut
   const [requestedYear, setRequestedYear] = useState(2025); // Valeur par défaut
   const [weekOffset, setWeekOffset] = useState(0);
@@ -53,6 +53,13 @@ const RoomPlanningScreen = ({ route }) => {
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [syncInProgress, setSyncInProgress] = useState(false);
+
+  // Variables pour le marqueur de temps actuel
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTimeSlot, setCurrentTimeSlot] = useState(null);
+  const [currentDay, setCurrentDay] = useState(null);
+  const [currentWeekMarker, setCurrentWeekMarker] = useState(null);
+  const [currentYearMarker, setCurrentYearMarker] = useState(null);
 
   const days = [t('planning.mon'), t('planning.tue'), t('planning.wed'), t('planning.thu'), t('planning.fri')];
 
@@ -85,11 +92,7 @@ const RoomPlanningScreen = ({ route }) => {
     const initialWeek = getWeekNumber(today);
     const initialYear = today.getFullYear();
     
-    console.log('🔄 Initialisation de la semaine et année:', {
-      date: today.toISOString(),
-      semaine: initialWeek,
-      annee: initialYear
-    });
+
     
     setCurrentWeek(initialWeek);
     setCurrentYear(initialYear);
@@ -98,27 +101,65 @@ const RoomPlanningScreen = ({ route }) => {
   };
 
   useEffect(() => {
-    console.log('🚀 Montage du composant RoomPlanningScreen');
     initializeWeekAndYear();
-    console.log('📅 Chargement des créneaux horaires...');
     loadTimeSlots();
   }, []);
+
+  // Effet pour mettre à jour le temps actuel toutes les minutes
+  useEffect(() => {
+    const updateCurrentTime = () => {
+      const now = new Date();
+      setCurrentTime(now);
+      
+      // Déterminer le jour actuel (0 = dimanche, 1 = lundi, etc.)
+      const dayOfWeek = now.getDay();
+      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+      setCurrentDay(dayNames[dayOfWeek]);
+      
+      // Calculer la semaine et l'année actuelles
+      const weekNumber = getWeekNumber(now);
+      const yearNumber = now.getFullYear();
+      setCurrentWeekMarker(weekNumber);
+      setCurrentYearMarker(yearNumber);
+      
+      // Déterminer le créneau horaire actuel
+      if (timeSlots && timeSlots.length > 0) {
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTimeInMinutes = currentHour * 60 + currentMinute;
+        
+        const activeSlot = timeSlots.find(slot => {
+          const [startHour, startMinute] = slot.debut.split(':').map(Number);
+          const [endHour, endMinute] = slot.fin.split(':').map(Number);
+          const startTimeInMinutes = startHour * 60 + startMinute;
+          const endTimeInMinutes = endHour * 60 + endMinute;
+          
+          return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
+        });
+        
+        setCurrentTimeSlot(activeSlot || null);
+      }
+    };
+
+    // Mettre à jour immédiatement
+    updateCurrentTime();
+    
+    // Mettre à jour toutes les minutes
+    const interval = setInterval(updateCurrentTime, 60000);
+    
+    return () => clearInterval(interval);
+  }, [timeSlots]);
 
   // Effet pour la connexion WebSocket uniquement quand l'écran est visible
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔌 Écran RoomPlanningScreen visible - Connexion WebSocket...');
-      
       // Vérifier que l'école a une URL valide avant de tenter la connexion
       if (school && school.apiUrl) {
         connectSocket();
-      } else {
-        console.log('⚠️ Pas d\'URL d\'école valide, WebSocket désactivé');
       }
       
       return () => {
         if (socket) {
-          console.log('🔌 Écran RoomPlanningScreen masqué - Déconnexion WebSocket');
           // Désactiver la reconnexion automatique avant de déconnecter
           socket.io.opts.reconnection = false;
           socket.disconnect();
@@ -132,14 +173,12 @@ const RoomPlanningScreen = ({ route }) => {
   // Effet pour surveiller les changements de connectivité
   useEffect(() => {
     if (isOnline && isOfflineMode) {
-      console.log('🌐 Connexion rétablie - Tentative de reconnexion WebSocket');
       setIsOfflineMode(false);
       // Ne reconnecter que si on a un socket valide (écran visible)
       if (socket) {
         connectSocket();
       }
     } else if (!isOnline && !isOfflineMode) {
-      console.log('📱 Connexion perdue - Passage en mode hors ligne');
       setIsOfflineMode(true);
       if (socket) {
         socket.disconnect();
@@ -151,57 +190,30 @@ const RoomPlanningScreen = ({ route }) => {
 
   // Effet pour charger le planning quand la semaine ou l'année change
   useEffect(() => {
-    console.log('📅 Changement de semaine/année détecté:', {
-      requestedWeek,
-      requestedYear,
-      currentWeek,
-      currentYear,
-      planningType: typeof planning,
-      planningLength: planning ? planning.length : 'undefined'
-    });
-
     if (requestedWeek && requestedYear) {
-      console.log('✅ Chargement du planning avec:', {
-        semaine: requestedWeek,
-        annee: requestedYear
-      });
-      
       // Charger via API REST directement pour les salles
-      console.log('📡 Chargement via API REST pour la salle');
       loadPlanning();
       
       // Charger les annotations pour la semaine demandée
       loadAnnotations();
-    } else {
-      console.log('❌ Impossible de charger le planning - paramètres manquants:', {
-        semaine: requestedWeek,
-        annee: requestedYear
-      });
     }
   }, [requestedWeek, requestedYear]);
 
   const connectSocket = async () => {
-    console.log('🔌 Début de connectSocket()');
-    console.log('🔌 school.apiUrl:', school.apiUrl);
-    console.log('🔌 salle:', salle);
-    console.log('🔌 salleNom:', salleNom);
     
     // Vérifications préventives multiples
     if (!isOnline) {
-      console.log('📱 Mode hors ligne détecté - WebSocket désactivé');
       setIsOfflineMode(true);
       setWsConnected(false);
       return;
     }
     
     if (!school || !school.apiUrl) {
-      console.log('⚠️ Pas d\'URL d\'école valide - WebSocket désactivé');
       return;
     }
     
     // Vérifier que socket.io-client est disponible
     if (!io) {
-      console.log('⚠️ socket.io-client non disponible - WebSocket désactivé');
       setIsOfflineMode(true);
       setWsConnected(false);
       return;
@@ -212,13 +224,11 @@ const RoomPlanningScreen = ({ route }) => {
       const isServerAccessible = await ApiService.checkConnectivity(school.apiUrl);
       
       if (!isServerAccessible) {
-        console.log('📱 Serveur inaccessible - WebSocket désactivé');
         setIsOfflineMode(true);
         setWsConnected(false);
         return;
       }
     } catch (error) {
-      console.log('❌ Erreur lors de la vérification de connectivité:', error.message);
       setIsOfflineMode(true);
       setWsConnected(false);
       return;
@@ -233,9 +243,7 @@ const RoomPlanningScreen = ({ route }) => {
       socketUrl = baseUrl.replace('https://', 'wss://');
     }
     
-    console.log('🔌 Tentative de connexion WebSocket à:', socketUrl);
-    console.log('🔌 URL de base:', baseUrl);
-    console.log('🔌 URL WebSocket finale:', socketUrl);
+
     
     try {
       const newSocket = io(socketUrl, {
@@ -246,8 +254,6 @@ const RoomPlanningScreen = ({ route }) => {
         reconnectionDelayMax: 5000,
         timeout: 20000,
       });
-
-      console.log('🔌 Socket créé:', newSocket.id);
 
       newSocket.on('connect', () => {
         console.log('🔌 Connecté au serveur Socket.IO');
@@ -501,7 +507,7 @@ const RoomPlanningScreen = ({ route }) => {
         console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
       } else {
         setIsOfflineMode(false);
-        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
+
       }
       
       if (!result.success) {
@@ -730,7 +736,7 @@ const RoomPlanningScreen = ({ route }) => {
     const cours = getCoursByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`);
 
     return (
-      <View style={styles.planningCell}>
+      <View>
         {renderCours(cours)}
       </View>
     );
@@ -916,17 +922,39 @@ const RoomPlanningScreen = ({ route }) => {
             timeSlots.map((timeSlot, hourIndex) => (
               <View key={hourIndex} style={styles.timeRow}>
                 {renderTimeCell(timeSlot)}
-                {days.map((day, dayIndex) => (
-                  <View 
-                    key={dayIndex} 
-                    style={[
-                      styles.planningCell,
-                      dayIndex === days.length - 1 && styles.planningCellLast
-                    ]}
-                  >
-                    {renderPlanningCell(day, timeSlot)}
-                  </View>
-                ))}
+                {days.map((day, dayIndex) => {
+                  // Vérifier si c'est le créneau actuel
+                  const isCurrentSlot = currentTimeSlot && 
+                    currentTimeSlot.debut === timeSlot.debut && 
+                    currentTimeSlot.fin === timeSlot.fin;
+                  
+                  // Vérifier si c'est le jour actuel
+                  const dayNames = {
+                    [t('planning.mon')]: 'mon',
+                    [t('planning.tue')]: 'tue',
+                    [t('planning.wed')]: 'wed',
+                    [t('planning.thu')]: 'thu',
+                    [t('planning.fri')]: 'fri'
+                  };
+                  const isCurrentDay = currentDay === dayNames[day];
+                  
+                  // Vérifier si c'est la semaine et l'année actuelles
+                  const isCurrentWeek = currentWeekMarker === currentWeek && currentYearMarker === currentYear;
+                  
+                  const isCurrent = isCurrentSlot && isCurrentDay && isCurrentWeek;
+
+                  return (
+                    <View 
+                      key={dayIndex} 
+                      style={[
+                        isCurrent ? styles.planningCellActive : styles.planningCell,
+                        dayIndex === days.length - 1 && styles.planningCellLast
+                      ]}
+                    >
+                      {renderPlanningCell(day, timeSlot)}
+                    </View>
+                  );
+                })}
               </View>
             ))
           ) : (
@@ -1098,7 +1126,7 @@ const styles = StyleSheet.create({
   coursItem: {
     backgroundColor: 'transparent',
     borderRadius: 4,
-    padding: 0,
+    padding: 2,
     marginBottom: 2,
     overflow: 'visible',
   },
@@ -1181,6 +1209,8 @@ const styles = StyleSheet.create({
   coursAnnule: {
     borderLeftWidth: 3,
     borderLeftColor: '#FF9800',
+    paddingLeft: 2,
+    marginLeft: 1,
   },
   coursAnnuleText: {
     color: '#FF9800',
@@ -1189,6 +1219,8 @@ const styles = StyleSheet.create({
   coursRemplacement: {
     borderLeftWidth: 3,
     borderLeftColor: '#4CAF50',
+    paddingLeft: 2,
+    marginLeft: 1,
   },
   coursRemplacementText: {
     color: '#4CAF50',
@@ -1286,6 +1318,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  // Styles pour le marqueur de temps actuel
+  activeTimeCell: {
+    backgroundColor: '#2196F3',
+  },
+  planningCellActive: {
+    flex: 1,
+    minHeight: 80,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    marginRight: 8,
+    padding: 0,
+    borderWidth: 2,
+    borderColor: '#2196F3',
   },
 });
 

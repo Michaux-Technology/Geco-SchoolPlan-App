@@ -10,12 +10,6 @@ const ViewTypeScreen = ({ route, navigation }) => {
   const handleOptionPress = (option) => {
     switch (option) {
       case 'teachers':
-        console.log('Données de l\'école transmises:', {
-          name: school.name,
-          apiUrl: school.apiUrl,
-          token: school.token ? `${school.token.substring(0, 10)}...` : 'manquant',
-          refreshToken: school.refreshToken ? `${school.refreshToken.substring(0, 10)}...` : 'manquant'
-        });
         navigation.navigate('TeacherList', { 
           school: {
             ...school,

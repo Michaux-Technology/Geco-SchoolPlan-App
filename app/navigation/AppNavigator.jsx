@@ -93,14 +93,7 @@ const AppNavigator = () => {
             title: route.params?.title || t('navigation.planning'),
             headerBackTitle: t('common.back')
           })}
-          listeners={{
-            focus: () => {
-              console.log('🔍 TeacherPlanning screen focused');
-            },
-            blur: () => {
-              console.log('🔍 TeacherPlanning screen blurred');
-            }
-          }}
+
         />
         <Stack.Screen 
           name="ClassPlanning" 
@@ -109,14 +102,7 @@ const AppNavigator = () => {
             title: `${t('navigation.planning')} - ${route.params?.classe?.nom || t('navigation.class')}`,
             headerBackTitle: t('common.back')
           })}
-          listeners={{
-            focus: () => {
-              console.log('🔍 ClassPlanning screen focused');
-            },
-            blur: () => {
-              console.log('🔍 ClassPlanning screen blurred');
-            }
-          }}
+
         />
         <Stack.Screen 
           name="RoomPlanning" 
@@ -125,14 +111,7 @@ const AppNavigator = () => {
             title: `${t('navigation.planning')} - ${route.params?.salle?.nom || t('navigation.room')}`,
             headerBackTitle: t('common.back')
           })}
-          listeners={{
-            focus: () => {
-              console.log('🔍 RoomPlanning screen focused');
-            },
-            blur: () => {
-              console.log('🔍 RoomPlanning screen blurred');
-            }
-          }}
+
         />
       </Stack.Navigator>
     </NavigationContainer>

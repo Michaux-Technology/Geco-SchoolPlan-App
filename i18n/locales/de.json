@@ -97,7 +97,10 @@
     "comment": "Kommentar",
     "replacementInfo": "Ersatzinformation",
     "notDefined": "Nicht definiert",
-    "notDefinedF": "Nicht definiert"
+    "notDefinedF": "Nicht definiert",
+    "currentTime": "Aktuelle Zeit",
+    "noCurrentActivity": "Keine aktuelle Aktivität",
+    "outsideTimeSlots": "Außerhalb der Zeitslots"
   },
   "settings": {
     "title": "Einstellungen",

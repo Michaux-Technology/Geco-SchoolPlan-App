@@ -18,30 +18,17 @@ const HomeScreen = () => {
   const loadSchools = async () => {
     try {
       const savedSchools = await AsyncStorage.getItem('schools');
-      console.log('Écoles sauvegardées:', savedSchools);
       
       if (savedSchools) {
         const schoolsList = JSON.parse(savedSchools);
-        console.log('Liste des écoles parsée:', schoolsList);
         
         // Charger les données complètes de chaque école
         const completeSchools = await Promise.all(
           schoolsList.map(async (school) => {
             const schoolData = await AsyncStorage.getItem(`school_${school.id}`);
-            console.log(`Données de l'école ${school.name}:`, {
-              rawData: schoolData,
-              hasToken: schoolData ? JSON.parse(schoolData).token : false,
-              hasRefreshToken: schoolData ? JSON.parse(schoolData).refreshToken : false
-            });
             return schoolData ? JSON.parse(schoolData) : school;
           })
         );
-        
-        console.log('Écoles complètes chargées:', completeSchools.map(school => ({
-          name: school.name,
-          hasToken: Boolean(school.token),
-          hasRefreshToken: Boolean(school.refreshToken)
-        })));
         
         setSchools(completeSchools);
       }
@@ -69,12 +56,6 @@ const HomeScreen = () => {
 
   const handleSchoolPress = async (school) => {
     try {
-      console.log('École sélectionnée:', {
-        name: school.name,
-        apiUrl: school.apiUrl,
-        token: school.token ? `${school.token.substring(0, 10)}...` : 'manquant',
-        refreshToken: school.refreshToken ? `${school.refreshToken.substring(0, 10)}...` : 'manquant'
-      });
       
       await AsyncStorage.setItem('currentSchool', JSON.stringify(school));
       navigation.navigate('ViewType', {

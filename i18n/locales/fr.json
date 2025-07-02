@@ -97,7 +97,10 @@
     "comment": "Commentaire",
     "replacementInfo": "Information de remplacement",
     "notDefined": "Non défini",
-    "notDefinedF": "Non définie"
+    "notDefinedF": "Non définie",
+    "currentTime": "Heure actuelle",
+    "noCurrentActivity": "Aucune activité en cours",
+    "outsideTimeSlots": "Hors créneaux"
   },
   "settings": {
     "title": "Paramètres",

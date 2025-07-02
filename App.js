@@ -13,7 +13,6 @@ LogBox.ignoreLogs([
 ]);
 
 export default function App() {
-  console.log('Application démarrée');
   return (
     <SafeAreaProvider>
       <AppNavigator />

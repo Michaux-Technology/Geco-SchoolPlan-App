@@ -47,6 +47,11 @@ const TeacherPlanningScreen = ({ route }) => {
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [syncInProgress, setSyncInProgress] = useState(false);
+  
+  // Variables pour l'indicateur de cours actuel
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTimeSlot, setCurrentTimeSlot] = useState(null);
+  const [currentSurveillanceIndex, setCurrentSurveillanceIndex] = useState(null);
 
   const days = [t('planning.mon'), t('planning.tue'), t('planning.wed'), t('planning.thu'), t('planning.fri')];
 
@@ -56,50 +61,148 @@ const TeacherPlanningScreen = ({ route }) => {
     const initialWeek = getWeekNumber(today);
     const initialYear = today.getFullYear();
     
-    console.log('🔄 Initialisation de la semaine et année:', {
-      date: today.toISOString(),
-      semaine: initialWeek,
-      annee: initialYear
-    });
+
     
     setCurrentWeek(initialWeek);
     setCurrentYear(initialYear);
     setRequestedWeek(initialWeek);
     setRequestedYear(initialYear);
 
-    // Vérifier après le setState
-    setTimeout(() => {
-      console.log('🔍 Vérification des valeurs après initialisation:', {
-        currentWeek,
-        currentYear,
-        requestedWeek,
-        requestedYear
-      });
-    }, 100);
+
   };
 
   useEffect(() => {
-    console.log('🚀 Montage du composant TeacherPlanningScreen');
     initializeWeekAndYear();
-    console.log('📅 Chargement des créneaux horaires...');
     loadTimeSlots();
+  }, []);
+
+  // Effet pour mettre à jour l'heure actuelle et déterminer le créneau horaire actuel
+  useEffect(() => {
+    const updateCurrentTime = () => {
+      const now = new Date();
+      setCurrentTime(now);
+      
+      // Déterminer le créneau horaire actuel
+      if (timeSlots && timeSlots.length > 0) {
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+        
+
+        
+        // Trouver le créneau horaire actuel
+        const foundTimeSlot = timeSlots.find(slot => {
+          const [startHour, startMinute] = slot.debut.split(':').map(Number);
+          const [endHour, endMinute] = slot.fin.split(':').map(Number);
+          
+          const startTime = startHour * 60 + startMinute;
+          const endTime = endHour * 60 + endMinute;
+          const currentTime = currentHour * 60 + currentMinute;
+          
+          const isInSlot = currentTime >= startTime && currentTime < endTime;
+          
+
+          
+
+          
+          return isInSlot;
+        });
+        
+
+        setCurrentTimeSlot(foundTimeSlot || null);
+        
+
+        
+        // Si aucun créneau horaire trouvé, vérifier les surveillances entre créneaux
+        if (!foundTimeSlot && timeSlots.length > 0) {
+          const currentHour = now.getHours();
+          const currentMinute = now.getMinutes();
+          const currentTimeMinutes = currentHour * 60 + currentMinute;
+          
+          // Vérifier si c'est le jour actuel
+          const currentDay = now.toLocaleDateString('fr-FR', { weekday: 'long' });
+          const currentDayAbbr = {
+            'lundi': t('planning.mon'),
+            'mardi': t('planning.tue'),
+            'mercredi': t('planning.wed'),
+            'jeudi': t('planning.thu'),
+            'vendredi': t('planning.fri')
+          }[currentDay.toLowerCase()];
+          
+          // Vérifier si c'est la semaine actuelle
+          const currentWeekNumber = getWeekNumber(now);
+          const currentYearNumber = now.getFullYear();
+          const isCurrentWeek = currentWeek === currentWeekNumber && currentYear === currentYearNumber;
+          
+          if (isCurrentWeek) {
+            // Vérifier la surveillance avant la première heure (position -1)
+            const [firstHour, firstMinute] = timeSlots[0].debut.split(':').map(Number);
+            const firstTime = firstHour * 60 + firstMinute;
+                         if (currentTimeMinutes < firstTime) {
+               setCurrentSurveillanceIndex(-1);
+               return;
+             }
+            
+                         // Vérifier les surveillances entre créneaux
+             for (let i = 0; i < timeSlots.length - 1; i++) {
+               const [prevHour, prevMinute] = timeSlots[i].fin.split(':').map(Number);
+               const [nextHour, nextMinute] = timeSlots[i + 1].debut.split(':').map(Number);
+               const startTime = prevHour * 60 + prevMinute;
+               const endTime = nextHour * 60 + nextMinute;
+               
+
+               
+               if (currentTimeMinutes >= startTime && currentTimeMinutes < endTime) {
+                 console.log(`🎯 Surveillance actuelle détectée - Index: ${i}, Heure: ${currentHour}:${currentMinute}, Période: ${startTime}-${endTime}`);
+                 setCurrentSurveillanceIndex(i);
+                 return;
+               }
+             }
+            
+            // Vérifier la surveillance après la dernière heure
+            const [lastHour, lastMinute] = timeSlots[timeSlots.length - 1].fin.split(':').map(Number);
+            const lastTime = lastHour * 60 + lastMinute;
+                         if (currentTimeMinutes >= lastTime) {
+               setCurrentSurveillanceIndex(timeSlots.length - 1);
+               return;
+             }
+          }
+          
+          // Aucune surveillance trouvée
+          setCurrentSurveillanceIndex(null);
+        } else {
+          setCurrentSurveillanceIndex(null);
+        }
+      } else {
+        setCurrentSurveillanceIndex(null);
+      }
+    };
+    
+    // Mettre à jour immédiatement
+    updateCurrentTime();
+    
+    // Mettre à jour toutes les minutes
+    const interval = setInterval(updateCurrentTime, 60000);
+    
+    return () => clearInterval(interval);
+  }, [timeSlots]);
+
+  // Effet séparé pour mettre à jour l'heure immédiatement au montage
+  useEffect(() => {
+    const now = new Date();
+    setCurrentTime(now);
   }, []);
 
   // Effet pour la connexion WebSocket uniquement quand l'écran est visible
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔌 Écran TeacherPlanningScreen visible - Connexion WebSocket...');
-      
       // Vérifier que l'école a une URL valide avant de tenter la connexion
       if (school && school.apiUrl) {
         connectSocket();
-      } else {
-        console.log('⚠️ Pas d\'URL d\'école valide, WebSocket désactivé');
       }
       
       return () => {
         if (socket) {
-          console.log('🔌 Écran TeacherPlanningScreen masqué - Déconnexion WebSocket');
           // Désactiver la reconnexion automatique avant de déconnecter
           socket.io.opts.reconnection = false;
           socket.disconnect();
@@ -113,14 +216,12 @@ const TeacherPlanningScreen = ({ route }) => {
   // Effet pour surveiller les changements de connectivité
   useEffect(() => {
     if (isOnline && isOfflineMode) {
-      console.log('🌐 Connexion rétablie - Tentative de reconnexion WebSocket');
       setIsOfflineMode(false);
       // Ne reconnecter que si on a un socket valide (écran visible)
       if (socket) {
         connectSocket();
       }
     } else if (!isOnline && !isOfflineMode) {
-      console.log('📱 Connexion perdue - Passage en mode hors ligne');
       setIsOfflineMode(true);
       if (socket) {
         socket.disconnect();
@@ -132,41 +233,20 @@ const TeacherPlanningScreen = ({ route }) => {
 
   // Effet pour charger le planning quand la semaine ou l'année change
   useEffect(() => {
-    console.log('📅 Changement de semaine/année détecté:', {
-      requestedWeek,
-      requestedYear,
-      currentWeek,
-      currentYear,
-      planningType: typeof planning,
-      planningLength: planning ? planning.length : 'undefined'
-    });
-
     if (requestedWeek && requestedYear) {
-      console.log('✅ Chargement du planning avec:', {
-        semaine: requestedWeek,
-        annee: requestedYear
-      });
       
       // Ne charger via API REST que si on n'a pas de données WebSocket
       if (!planning || planning.length === 0) {
-        console.log('📡 Aucune donnée WebSocket disponible, chargement via API REST');
         loadPlanning();
       } else {
-        console.log('📡 Données WebSocket disponibles, filtrage des données existantes');
         // Vérifier que planning est un tableau avant de le filtrer
         if (Array.isArray(planning)) {
           const filteredPlanning = planning.filter(cours => 
             cours.semaine === requestedWeek && 
             cours.annee === requestedYear
           );
-          console.log('📅 Planning filtré depuis les données WebSocket:', {
-            semaineDemandee: requestedWeek,
-            anneeDemandee: requestedYear,
-            nombreCours: filteredPlanning.length
-          });
           setPlanning(filteredPlanning);
         } else {
-          console.log('⚠️ Planning n\'est pas un tableau, chargement via API REST');
           loadPlanning();
         }
       }
@@ -176,20 +256,12 @@ const TeacherPlanningScreen = ({ route }) => {
       
       // Charger les annotations pour la semaine demandée
       loadAnnotations();
-    } else {
-      console.log('❌ Impossible de charger le planning - paramètres manquants:', {
-        semaine: requestedWeek,
-        annee: requestedYear
-      });
     }
   }, [requestedWeek, requestedYear]);
 
   // Suppression de l'effet de filtrage automatique pour éviter les conflits avec WebSocket
 
-  const connectSocket = async () => {
-    console.log('🔌 Début de connectSocket()');
-    console.log('🔌 school.apiUrl:', school.apiUrl);
-    console.log('🔌 teacher._id:', teacher._id);
+      const connectSocket = async () => {
     
     // Vérifications préventives multiples
     if (!isOnline) {
@@ -217,13 +289,11 @@ const TeacherPlanningScreen = ({ route }) => {
       const isServerAccessible = await ApiService.checkConnectivity(school.apiUrl);
       
       if (!isServerAccessible) {
-        console.log('📱 Serveur inaccessible - WebSocket désactivé');
         setIsOfflineMode(true);
         setWsConnected(false);
         return;
       }
     } catch (error) {
-      console.log('❌ Erreur lors de la vérification de connectivité:', error.message);
       setIsOfflineMode(true);
       setWsConnected(false);
       return;
@@ -238,9 +308,7 @@ const TeacherPlanningScreen = ({ route }) => {
       socketUrl = baseUrl.replace('https://', 'wss://');
     }
     
-    console.log('🔌 Tentative de connexion WebSocket à:', socketUrl);
-    console.log('🔌 URL de base:', baseUrl);
-    console.log('🔌 URL WebSocket finale:', socketUrl);
+
     
     try {
       const newSocket = io(socketUrl, {
@@ -252,87 +320,43 @@ const TeacherPlanningScreen = ({ route }) => {
         timeout: 20000,
       });
 
-      console.log('🔌 Socket créé:', newSocket.id);
-
       newSocket.on('connect', () => {
-        console.log('🔌 Connecté au serveur Socket.IO');
-        console.log('🔌 Socket ID:', newSocket.id);
-        console.log('🔌 Socket URL:', newSocket.io.uri);
         setWsConnected(true);
         setError(null);
         
         // S'abonner aux mises à jour du planning
-        console.log('📡 Envoi de l\'abonnement pour l\'enseignant:', teacher._id);
         newSocket.emit('subscribe', {
           enseignantId: teacher._id
         });
-        console.log('✅ Abonnement envoyé');
       });
 
-      // Log pour tous les événements reçus
-      newSocket.onAny((eventName, ...args) => {
-        console.log('📡 Événement WebSocket reçu:', eventName, args);
-      });
+
 
       newSocket.on('planningUpdate', (data) => {
-        console.log('🔄 Mise à jour du planning reçue via WebSocket:', {
-          hasPlanning: Boolean(data.planning),
-          hasCours: Boolean(data.cours),
-          hasSurveillances: Boolean(data.surveillances),
-          hasUhrs: Boolean(data.uhrs),
-          planningLength: data.planning?.length,
-          coursLength: data.cours?.length,
-          surveillancesLength: data.surveillances?.length,
-          uhrsLength: data.uhrs?.length,
-          currentWeek: data.currentWeek,
-          currentYear: data.currentYear,
-          dataKeys: Object.keys(data),
-          timestamp: new Date().toISOString()
-        });
         
         setLastUpdate(new Date());
         
         // Mettre à jour les données de planning
         if (data.cours && Array.isArray(data.cours)) {
           // Données reçues au format {cours: [...], surveillances: [...], uhrs: [...]}
-          console.log('📚 Cours reçus via WebSocket:', data.cours.length);
           
           // Si le backend a envoyé la semaine/année, les utiliser
           const weekToUse = data.currentWeek || requestedWeek || currentWeek;
           const yearToUse = data.currentYear || requestedYear || currentYear;
           
-          console.log('📅 Utilisation des paramètres:', {
-            weekToUse,
-            yearToUse,
-            dataCurrentWeek: data.currentWeek,
-            dataCurrentYear: data.currentYear,
-            requestedWeek,
-            requestedYear,
-            currentWeek,
-            currentYear
-          });
-          
-          if (weekToUse && yearToUse) {
-            // Filtrer les cours pour la semaine demandée
-            const filteredPlanning = data.cours.filter(cours => 
-              cours.semaine === weekToUse && 
-              cours.annee === yearToUse
-            );
-            console.log('📅 Planning filtré pour la semaine:', {
-              semaineDemandee: weekToUse,
-              anneeDemandee: yearToUse,
-              nombreCours: filteredPlanning.length,
-              totalCoursRecus: data.cours.length
-            });
-            setPlanning(filteredPlanning);
-          } else {
-            // Si aucune semaine n'est définie, stocker tous les cours
-            console.log('📅 Aucune semaine définie, stockage de tous les cours:', data.cours.length);
-            setPlanning(data.cours);
-          }
+                      if (weekToUse && yearToUse) {
+              // Filtrer les cours pour la semaine demandée
+              const filteredPlanning = data.cours.filter(cours => 
+                cours.semaine === weekToUse && 
+                cours.annee === yearToUse
+              );
+              setPlanning(filteredPlanning);
+            } else {
+              // Si aucune semaine n'est définie, stocker tous les cours
+              setPlanning(data.cours);
+            }
         } else if (data.planning) {
           // Ancien format pour compatibilité
-          console.log('📚 Planning reçu au format legacy:', data.planning.length);
           
           // Extraire le tableau de cours selon la structure reçue
           let coursArray = [];
@@ -348,29 +372,22 @@ const TeacherPlanningScreen = ({ route }) => {
             const weekToUse = requestedWeek || currentWeek;
             const yearToUse = requestedYear || currentYear;
             
-            if (weekToUse && yearToUse) {
-              // Filtrer les cours pour la semaine demandée
-              const filteredPlanning = coursArray.filter(cours => 
-                cours.semaine === weekToUse && 
-                cours.annee === yearToUse
-              );
-              console.log('📅 Planning filtré (legacy):', {
-                semaineDemandee: weekToUse,
-                anneeDemandee: yearToUse,
-                nombreCours: filteredPlanning.length
-              });
-              setPlanning(filteredPlanning);
-            } else {
-              // Si aucune semaine n'est définie, stocker tous les cours
-              console.log('📅 Aucune semaine définie (legacy), stockage de tous les cours:', coursArray.length);
-              setPlanning(coursArray);
-            }
+                          if (weekToUse && yearToUse) {
+                // Filtrer les cours pour la semaine demandée
+                const filteredPlanning = coursArray.filter(cours => 
+                  cours.semaine === weekToUse && 
+                  cours.annee === yearToUse
+                );
+                setPlanning(filteredPlanning);
+              } else {
+                // Si aucune semaine n'est définie, stocker tous les cours
+                setPlanning(coursArray);
+              }
           }
         }
         
         // Mettre à jour les surveillances
         if (data.surveillances && Array.isArray(data.surveillances)) {
-          console.log('👁️ Surveillances reçues via WebSocket:', data.surveillances.length);
           setSurveillances(data.surveillances);
         }
         
@@ -381,7 +398,6 @@ const TeacherPlanningScreen = ({ route }) => {
             debut: slot.start,
             fin: slot.ende
           }));
-          console.log('⏰ Créneaux horaires mis à jour via WebSocket:', formattedTimeSlots.length);
           setTimeSlots(formattedTimeSlots);
         } else if (data.zeitslots) {
           const formattedTimeSlots = data.zeitslots.map(slot => ({
@@ -389,7 +405,6 @@ const TeacherPlanningScreen = ({ route }) => {
             debut: slot.start,
             fin: slot.ende
           }));
-          console.log('⏰ Créneaux horaires mis à jour (zeitslots):', formattedTimeSlots.length);
           setTimeSlots(formattedTimeSlots);
         } else if (data.planning && data.planning.uhrs) {
           const formattedTimeSlots = data.planning.uhrs.map(slot => ({
@@ -397,33 +412,19 @@ const TeacherPlanningScreen = ({ route }) => {
             debut: slot.start,
             fin: slot.ende
           }));
-          console.log('⏰ Créneaux horaires mis à jour (planning.uhrs):', formattedTimeSlots.length);
           setTimeSlots(formattedTimeSlots);
-        } else {
-          console.log('⚠️ Aucun créneau horaire trouvé dans les données WebSocket:', {
-            hasZeitslots: Boolean(data.zeitslots),
-            hasUhrs: Boolean(data.uhrs),
-            hasPlanningUhrs: Boolean(data.planning?.uhrs),
-            dataKeys: Object.keys(data)
-          });
         }
 
         // Forcer un remontage du composant
         setViewKey(prev => prev + 1);
-        console.log('🔄 Composant remonté pour afficher les nouvelles données');
       });
 
       newSocket.on('coursUpdate', (data) => {
-        console.log('🔄 Mise à jour des cours reçue via WebSocket (coursUpdate):', {
-          dataLength: data.length,
-          timestamp: new Date().toISOString()
-        });
         
         setLastUpdate(new Date());
         
         // Traiter les données comme si c'était un planningUpdate
         if (Array.isArray(data)) {
-          console.log('📚 Cours reçus via coursUpdate:', data.length);
           
           // Déterminer la semaine à utiliser pour le filtrage
           // Priorité : requestedWeek/requestedYear > currentWeek/currentYear > semaine actuelle par défaut
@@ -435,7 +436,6 @@ const TeacherPlanningScreen = ({ route }) => {
             const today = new Date();
             weekToUse = getWeekNumber(today);
             yearToUse = today.getFullYear();
-            console.log('📅 Utilisation de la semaine actuelle par défaut:', { weekToUse, yearToUse });
           }
           
           // Filtrer les cours pour la semaine demandée
@@ -443,12 +443,6 @@ const TeacherPlanningScreen = ({ route }) => {
             cours.semaine === weekToUse && 
             cours.annee === yearToUse
           );
-          console.log('📅 Planning filtré (coursUpdate):', {
-            semaineDemandee: weekToUse,
-            anneeDemandee: yearToUse,
-            nombreCours: filteredPlanning.length,
-            totalCoursRecus: data.length
-          });
           
           setPlanning(filteredPlanning);
           
@@ -463,46 +457,32 @@ const TeacherPlanningScreen = ({ route }) => {
         
         // Forcer un remontage du composant
         setViewKey(prev => prev + 1);
-        console.log('🔄 Composant remonté pour afficher les nouvelles données (coursUpdate)');
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('❌ Erreur de connexion Socket.IO:', error);
-        console.error('❌ Détails de l\'erreur:', {
-          message: error.message,
-          description: error.description,
-          context: error.context,
-          type: error.type
-        });
         setError('Erreur de connexion en temps réel');
         setWsConnected(false);
       });
 
       newSocket.on('disconnect', (reason) => {
-        console.log('🔌 Déconnecté du serveur Socket.IO:', reason);
-        console.log('🔌 Raison de la déconnexion:', reason);
         setWsConnected(false);
       });
 
       newSocket.on('error', (error) => {
-        console.error('❌ Erreur Socket.IO:', error);
         setError('Erreur de connexion en temps réel');
       });
 
       // Gestionnaires pour les annotations
       newSocket.on('annotationsUpdate', (annotationsMap) => {
-        console.log('📝 Annotations mises à jour via WebSocket:', annotationsMap);
         setAnnotations(annotationsMap);
       });
 
       newSocket.on('annotationError', (error) => {
-        console.error('❌ Erreur d\'annotation:', error);
+        // Erreur silencieuse
       });
 
       setSocket(newSocket);
-      console.log('🔌 Socket stocké dans l\'état');
     } catch (error) {
-      console.error('❌ Erreur lors de la création du socket:', error);
       setError('Erreur lors de la création de la connexion WebSocket');
     }
   };
@@ -516,16 +496,8 @@ const TeacherPlanningScreen = ({ route }) => {
         throw new Error('Token d\'authentification manquant');
       }
 
-      console.log('📡 Chargement des créneaux horaires...');
-
       // Utiliser le service API centralisé
       const result = await ApiService.makeRequest(school, '/api/mobile/uhrs');
-      
-      if (result.fromCache) {
-        console.log('📱 Mode hors ligne - Créneaux horaires récupérés depuis le cache');
-      } else {
-        console.log('🌐 Mode en ligne - Créneaux horaires récupérés depuis le serveur');
-      }
       
       if (!result.success) {
         if (result.error === 'Aucune donnée disponible en mode hors ligne') {
@@ -544,12 +516,10 @@ const TeacherPlanningScreen = ({ route }) => {
           fin: slot.ende
         }));
         setTimeSlots(formattedTimeSlots);
-        console.log('✅ Créneaux horaires chargés:', formattedTimeSlots.length);
       } else {
         throw new Error('Aucun horaire disponible');
       }
     } catch (err) {
-      console.error('❌ Erreur lors du chargement des créneaux horaires:', err);
       setTimeSlotsError(err.message || 'Erreur lors du chargement des créneaux horaires');
     } finally {
       setLoadingTimeSlots(false);
@@ -558,48 +528,31 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const loadSurveillances = async () => {
     try {
-      console.log('🔍 Début de loadSurveillances');
-      console.log('🔍 Token:', school?.token ? 'présent' : 'manquant');
-      console.log('🔍 Paramètres:', { requestedWeek, requestedYear, teacherId: teacher._id });
-
       if (!school?.token) {
         throw new Error('Token d\'authentification manquant');
       }
 
       // Vérifier que les paramètres sont définis
       if (!requestedWeek || !requestedYear) {
-        console.log('❌ Paramètres manquants pour loadSurveillances');
         return;
       }
-
-      console.log('🔍 Chargement des surveillances pour l\'enseignant:', teacher._id);
 
       // Utiliser le service API centralisé
       const endpoint = `/api/mobile/surveillances/enseignant/${teacher._id}?semaine=${requestedWeek}&annee=${requestedYear}`;
       const result = await ApiService.makeRequest(school, endpoint);
       
-      if (result.fromCache) {
-        console.log('📱 Mode hors ligne - Surveillances récupérées depuis le cache');
-      } else {
-        console.log('🌐 Mode en ligne - Surveillances récupérées depuis le serveur');
-      }
+
       
       if (!result.success) {
         if (result.error === 'Aucune donnée disponible en mode hors ligne') {
-          console.log('⚠️ Aucune surveillance en cache, continuation sans erreur');
           setSurveillances([]);
           return;
         }
-        console.error('❌ Erreur lors du chargement des surveillances:', result.error);
         setSurveillances([]);
         return;
       }
       
       const data = result.data;
-      console.log('🔍 Données surveillances reçues:', {
-        nombreSurveillances: data.length,
-        surveillances: data
-      });
       
       // Filtrer les surveillances pour la semaine demandée
       const filteredSurveillances = data.filter(surveillance => 
@@ -607,14 +560,8 @@ const TeacherPlanningScreen = ({ route }) => {
         surveillance.annee === requestedYear
       );
       
-      console.log('🔍 Surveillances filtrées:', {
-        nombreSurveillancesFiltrees: filteredSurveillances.length,
-        surveillancesFiltrees: filteredSurveillances
-      });
-      
       setSurveillances(filteredSurveillances);
     } catch (err) {
-      console.error('❌ Erreur dans loadSurveillances:', err);
       // On ne met pas d'erreur dans l'état pour ne pas bloquer l'affichage du planning
       setSurveillances([]);
     }
@@ -625,7 +572,6 @@ const TeacherPlanningScreen = ({ route }) => {
       const semaine = requestedWeek || currentWeek;
       const annee = requestedYear || currentYear;
       
-      console.log('📝 Demande des annotations pour la semaine', semaine, 'et l\'année', annee);
       socket.emit('getAnnotations', { semaine, annee });
     }
   };
@@ -643,11 +589,7 @@ const TeacherPlanningScreen = ({ route }) => {
         return;
       }
 
-      console.log('📡 Chargement du planning pour l\'enseignant:', {
-        enseignant: teacher._id,
-        semaine: requestedWeek,
-        annee: requestedYear
-      });
+
 
       // Utiliser le service API centralisé
       const endpoint = `/api/mobile/cours/enseignant/${teacher._id}?semaine=${requestedWeek}&annee=${requestedYear}`;
@@ -655,10 +597,8 @@ const TeacherPlanningScreen = ({ route }) => {
       
       if (result.fromCache) {
         setIsOfflineMode(true);
-        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
       } else {
         setIsOfflineMode(false);
-        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
       }
       
       if (!result.success) {
@@ -693,7 +633,6 @@ const TeacherPlanningScreen = ({ route }) => {
       setLastSyncTime(syncTime);
       
     } catch (err) {
-      console.error('❌ Erreur lors du chargement du planning:', err);
       setError(err.message || 'Erreur lors du chargement du planning');
     } finally {
       setLoading(false);
@@ -769,17 +708,10 @@ const TeacherPlanningScreen = ({ route }) => {
     
     const jourComplet = joursComplets[day];
     
-    console.log('🔍 getSurveillancesByDayAndHour:', {
-      day,
-      jourComplet,
-      hour,
-      surveillancesLength: Array.isArray(surveillances) ? surveillances.length : 'non-array',
-      teacherId: teacher._id
-    });
+
     
     // Vérifier que surveillances est un tableau avant d'utiliser filter
     if (!Array.isArray(surveillances)) {
-      console.log('❌ surveillances n\'est pas un tableau');
       return [];
     }
     
@@ -798,27 +730,12 @@ const TeacherPlanningScreen = ({ route }) => {
         matchHeure = surveillanceHeure === hour;
       }
       
-      console.log('🔍 Filtrage surveillance:', {
-        surveillanceId: surveillance._id,
-        surveillanceJour: surveillance.jour,
-        surveillanceType: surveillance.type,
-        surveillanceEnseignant: surveillance.enseignant,
-        surveillanceUhr: surveillance.uhr,
-        surveillanceHeure: surveillance.uhr ? `${surveillance.uhr.start} - ${surveillance.uhr.ende}` : 'pas d\'heure',
-        matchJour,
-        matchType,
-        matchEnseignant,
-        matchHeure,
-        match: matchJour && matchType && matchEnseignant && matchHeure
-      });
+
       
       return matchJour && matchType && matchEnseignant && matchHeure;
     });
     
-    console.log('🔍 Résultat getSurveillancesByDayAndHour:', {
-      nombreResultats: result.length,
-      resultats: result
-    });
+
     
     return result;
   };
@@ -833,7 +750,7 @@ const TeacherPlanningScreen = ({ route }) => {
 
   const renderTimeCell = (timeSlot) => {
     return (
-      <View style={[styles.timeCell, { width: 45 }]}>
+      <View style={[styles.timeCellSlot, { width: 45 }]}>
         <Text style={styles.timeTextStart}>{timeSlot.debut}</Text>
         <View style={styles.timeSeparator} />
         <Text style={styles.timeTextEnd}>{timeSlot.fin}</Text>
@@ -962,20 +879,49 @@ const TeacherPlanningScreen = ({ route }) => {
   const renderSurveillanceEntreCreneaux = (day, timeSlotIndex) => {
     const surveillancesEntreCreneaux = getSurveillancesEntreCreneaux(day, timeSlotIndex);
     
-    if (!surveillancesEntreCreneaux || surveillancesEntreCreneaux.length === 0) {
-      return null;
-    }
+    // Vérifier si c'est le moment actuel pour une surveillance entre créneaux
+    const isCurrentSurveillanceTime = () => {
+      if (!currentTime || !timeSlots || timeSlots.length === 0) return false;
+      
+      // Vérifier si c'est le jour actuel
+      const currentDay = currentTime.toLocaleDateString('fr-FR', { weekday: 'long' });
+      const currentDayAbbr = {
+        'lundi': t('planning.mon'),
+        'mardi': t('planning.tue'),
+        'mercredi': t('planning.wed'),
+        'jeudi': t('planning.thu'),
+        'vendredi': t('planning.fri')
+      }[currentDay.toLowerCase()];
+      
+      const isCurrentDay = day === currentDayAbbr;
+      
+      // Vérifier si c'est la semaine actuelle
+      const currentWeekNumber = getWeekNumber(currentTime);
+      const currentYearNumber = currentTime.getFullYear();
+      const isCurrentWeek = currentWeek === currentWeekNumber && currentYear === currentYearNumber;
+      
+      // Vérifier si c'est la surveillance actuelle
+      const isCurrentSurveillance = currentSurveillanceIndex === timeSlotIndex;
+      
+      return isCurrentSurveillance && isCurrentDay && isCurrentWeek;
+    };
 
-    return (
-      <View style={styles.surveillanceEntreCreneauxCell}>
-        {surveillancesEntreCreneaux[0].lieu && (
-          <Text style={styles.surveillanceLieuText}>
-            {surveillancesEntreCreneaux[0].lieu}
-          </Text>
-        )}
-      </View>
-    );
+    const isCurrent = isCurrentSurveillanceTime();
+
+    // Si il y a une surveillance programmée, l'afficher
+    if (surveillancesEntreCreneaux && surveillancesEntreCreneaux.length > 0) {
+      return (
+        <Text style={styles.surveillanceLieuText}>
+          {surveillancesEntreCreneaux[0].lieu}
+        </Text>
+      );
+    }
+    
+    // Sinon, ne rien afficher
+    return null;
   };
+
+
 
   const renderAnnotations = () => {
     // Filtrer les annotations qui ont du contenu
@@ -1003,7 +949,7 @@ const TeacherPlanningScreen = ({ route }) => {
     const surveillances = getSurveillancesByDayAndHour(day, `${timeSlot.debut} - ${timeSlot.fin}`);
 
     return (
-      <View style={styles.planningCell}>
+      <View>
         {renderCours(cours)}
         {renderSurveillance(surveillances)}
       </View>
@@ -1169,6 +1115,8 @@ const TeacherPlanningScreen = ({ route }) => {
             </TouchableOpacity>
           </View>
 
+
+
           <View style={styles.headerRow}>
             <View style={[styles.timeCell, { width: 45 }]}>
               <Text style={styles.headerText}></Text>
@@ -1200,8 +1148,8 @@ const TeacherPlanningScreen = ({ route }) => {
                   <View 
                     key={dayIndex} 
                     style={[
-                      styles.surveillanceCell,
-                      dayIndex === days.length - 1 && styles.surveillanceCellLast
+                      styles.surveillanceEntreCreneauxCell,
+                      dayIndex === days.length - 1 && styles.surveillanceEntreCreneauxCellLast
                     ]}
                   >
                     {renderSurveillanceEntreCreneaux(day, -1)}
@@ -1214,17 +1162,44 @@ const TeacherPlanningScreen = ({ route }) => {
                   {/* Ligne des créneaux horaires */}
                   <View style={styles.timeRow}>
                     {renderTimeCell(timeSlot)}
-                    {days.map((day, dayIndex) => (
-                      <View 
-                        key={dayIndex} 
-                        style={[
-                          styles.planningCell,
-                          dayIndex === days.length - 1 && styles.planningCellLast
-                        ]}
-                      >
-                        {renderPlanningCell(day, timeSlot)}
-                      </View>
-                    ))}
+                    {days.map((day, dayIndex) => {
+                      // Vérifier si c'est le créneau horaire actuel ET le jour actuel ET la semaine actuelle
+                      const isCurrentTimeSlot = currentTimeSlot && 
+                        currentTimeSlot.debut === timeSlot.debut && 
+                        currentTimeSlot.fin === timeSlot.fin;
+
+                      const currentDay = currentTime.toLocaleDateString('fr-FR', { weekday: 'long' });
+                      const currentDayAbbr = {
+                        'lundi': t('planning.mon'),
+                        'mardi': t('planning.tue'),
+                        'mercredi': t('planning.wed'),
+                        'jeudi': t('planning.thu'),
+                        'vendredi': t('planning.fri')
+                      }[currentDay.toLowerCase()];
+                      
+                      const isCurrentDay = day === currentDayAbbr;
+                      
+                      // Vérifier si c'est la semaine actuelle
+                      const currentWeekNumber = getWeekNumber(currentTime);
+                      const currentYearNumber = currentTime.getFullYear();
+                      const isCurrentWeek = currentWeek === currentWeekNumber && currentYear === currentYearNumber;
+                      
+                      const isCurrent = isCurrentTimeSlot && isCurrentDay && isCurrentWeek;
+
+
+
+                      return (
+                        <View 
+                          key={dayIndex} 
+                          style={[
+                            isCurrent ? styles.planningCellActive : styles.planningCell,
+                            dayIndex === days.length - 1 && styles.planningCellLast
+                          ]}
+                        >
+                          {renderPlanningCell(day, timeSlot)}
+                        </View>
+                      );
+                    })}
                   </View>
                   
                   {/* Ligne des surveillances entre créneaux (sauf pour le dernier créneau) */}
@@ -1235,17 +1210,48 @@ const TeacherPlanningScreen = ({ route }) => {
                           {t('planning.surveillance')}
                         </Text>
                       </View>
-                      {days.map((day, dayIndex) => (
-                        <View 
-                          key={dayIndex} 
-                          style={[
-                            styles.surveillanceCell,
-                            dayIndex === days.length - 1 && styles.surveillanceCellLast
-                          ]}
-                        >
-                          {renderSurveillanceEntreCreneaux(day, hourIndex)}
-                        </View>
-                      ))}
+                      {days.map((day, dayIndex) => {
+                        // Vérifier si c'est le moment actuel pour une surveillance entre créneaux
+                        const isCurrentSurveillanceTime = () => {
+                          if (!currentTime || !timeSlots || timeSlots.length === 0) return false;
+                          
+                          // Vérifier si c'est le jour actuel
+                          const currentDay = currentTime.toLocaleDateString('fr-FR', { weekday: 'long' });
+                          const currentDayAbbr = {
+                            'lundi': t('planning.mon'),
+                            'mardi': t('planning.tue'),
+                            'mercredi': t('planning.wed'),
+                            'jeudi': t('planning.thu'),
+                            'vendredi': t('planning.fri')
+                          }[currentDay.toLowerCase()];
+                          
+                          const isCurrentDay = day === currentDayAbbr;
+                          
+                          // Vérifier si c'est la semaine actuelle
+                          const currentWeekNumber = getWeekNumber(currentTime);
+                          const currentYearNumber = currentTime.getFullYear();
+                          const isCurrentWeek = currentWeek === currentWeekNumber && currentYear === currentYearNumber;
+                          
+                          // Vérifier si c'est la surveillance actuelle
+                          const isCurrentSurveillance = currentSurveillanceIndex === hourIndex;
+                          
+                          return isCurrentSurveillance && isCurrentDay && isCurrentWeek;
+                        };
+
+                        const isCurrent = isCurrentSurveillanceTime();
+
+                        return (
+                          <View 
+                            key={dayIndex} 
+                            style={[
+                              isCurrent ? styles.currentTimeSlotCell : styles.surveillanceEntreCreneauxCell,
+                              dayIndex === days.length - 1 && styles.surveillanceEntreCreneauxCellLast
+                            ]}
+                          >
+                            {renderSurveillanceEntreCreneaux(day, hourIndex)}
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
@@ -1258,17 +1264,48 @@ const TeacherPlanningScreen = ({ route }) => {
                     {t('planning.surveillance')}
                   </Text>
                 </View>
-                {days.map((day, dayIndex) => (
-                  <View 
-                    key={dayIndex} 
-                    style={[
-                      styles.surveillanceCell,
-                      dayIndex === days.length - 1 && styles.surveillanceCellLast
-                    ]}
-                  >
-                    {renderSurveillanceEntreCreneaux(day, timeSlots.length - 1)}
-                  </View>
-                ))}
+                {days.map((day, dayIndex) => {
+                  // Vérifier si c'est le moment actuel pour une surveillance entre créneaux
+                  const isCurrentSurveillanceTime = () => {
+                    if (!currentTime || !timeSlots || timeSlots.length === 0) return false;
+                    
+                    // Vérifier si c'est le jour actuel
+                    const currentDay = currentTime.toLocaleDateString('fr-FR', { weekday: 'long' });
+                    const currentDayAbbr = {
+                      'lundi': t('planning.mon'),
+                      'mardi': t('planning.tue'),
+                      'mercredi': t('planning.wed'),
+                      'jeudi': t('planning.thu'),
+                      'vendredi': t('planning.fri')
+                    }[currentDay.toLowerCase()];
+                    
+                    const isCurrentDay = day === currentDayAbbr;
+                    
+                    // Vérifier si c'est la semaine actuelle
+                    const currentWeekNumber = getWeekNumber(currentTime);
+                    const currentYearNumber = currentTime.getFullYear();
+                    const isCurrentWeek = currentWeek === currentWeekNumber && currentYear === currentYearNumber;
+                    
+                    // Vérifier si c'est la surveillance actuelle
+                    const isCurrentSurveillance = currentSurveillanceIndex === timeSlots.length - 1;
+                    
+                    return isCurrentSurveillance && isCurrentDay && isCurrentWeek;
+                  };
+
+                  const isCurrent = isCurrentSurveillanceTime();
+
+                  return (
+                    <View 
+                      key={dayIndex} 
+                      style={[
+                        isCurrent ? styles.currentTimeSlotCell : styles.surveillanceEntreCreneauxCell,
+                        dayIndex === days.length - 1 && styles.surveillanceEntreCreneauxCellLast
+                      ]}
+                    >
+                      {renderSurveillanceEntreCreneaux(day, timeSlots.length - 1)}
+                    </View>
+                  );
+                })}
               </View>
             </>
           ) : (
@@ -1391,6 +1428,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  timeCellSlot: {
+    width: 45,
+    minHeight: 80,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    backgroundColor: '#1976D2',
+    borderRadius: 8,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   dayCell: {
     flex: 1,
     padding: 8,
@@ -1407,6 +1456,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
     padding: 0,
+  },
+  planningCellActive: {
+    flex: 1,
+    minHeight: 80,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    marginRight: 8,
+    padding: 0,
+    borderWidth: 2,
+    borderColor: '#2196F3',
   },
   headerText: {
     fontSize: 14,
@@ -1434,7 +1493,7 @@ const styles = StyleSheet.create({
   coursItem: {
     backgroundColor: 'transparent',
     borderRadius: 4,
-    padding: 0,
+    padding: 2,
     marginBottom: 2,
     overflow: 'visible',
   },
@@ -1519,6 +1578,8 @@ const styles = StyleSheet.create({
   coursAnnule: {
     borderLeftWidth: 3,
     borderLeftColor: '#FF9800',
+    paddingLeft: 2,
+    marginLeft: 1,
   },
   coursAnnuleText: {
     color: '#FF9800',
@@ -1527,6 +1588,8 @@ const styles = StyleSheet.create({
   coursRemplacement: {
     borderLeftWidth: 3,
     borderLeftColor: '#4CAF50',
+    paddingLeft: 2,
+    marginLeft: 1,
   },
   coursRemplacementText: {
     color: '#4CAF50',
@@ -1626,6 +1689,13 @@ const styles = StyleSheet.create({
   },
   surveillanceEntreCreneauxCell: {
     flex: 1,
+    minHeight: 40,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 6,
+    marginRight: 8,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1678,6 +1748,9 @@ const styles = StyleSheet.create({
   surveillanceCellLast: {
     marginRight: 0,
   },
+  surveillanceEntreCreneauxCellLast: {
+    marginRight: 0,
+  },
   commentIconInline: {
     marginLeft: 5,
   },
@@ -1689,6 +1762,18 @@ const styles = StyleSheet.create({
   coursSeparator: {
     height: 1,
     backgroundColor: '#E0E0E0',
+  },
+  currentTimeSlotCell: {
+    flex: 1,
+    minHeight: 40,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 6,
+    marginRight: 8,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

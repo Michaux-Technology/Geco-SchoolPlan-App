@@ -8,7 +8,6 @@ class ApiService {
       const isOnline = await this.checkConnectivity(school.apiUrl);
       
       if (!isOnline) {
-        console.log('📱 Mode hors ligne - Tentative de récupération depuis le cache');
         const cachedData = await this.getFromCache(school, endpoint);
         if (cachedData.success) {
           return cachedData;
@@ -32,7 +31,6 @@ class ApiService {
       // En cas d'erreur, essayer de récupérer depuis le cache
       const cachedData = await this.getFromCache(school, endpoint);
       if (cachedData.success) {
-        console.log('✅ Données récupérées depuis le cache après erreur');
         return cachedData;
       }
       
@@ -53,8 +51,6 @@ class ApiService {
       
       for (const endpoint of endpoints) {
         try {
-          console.log('🔍 Vérification de connectivité:', endpoint);
-          
           const response = await fetch(endpoint, {
             method: 'GET',
             signal: controller.signal,
@@ -67,19 +63,15 @@ class ApiService {
           
           if (response.ok || response.status === 400 || response.status === 401) {
             // Le serveur répond (même avec une erreur 400/401, cela signifie qu'il est accessible)
-            console.log('✅ Serveur accessible via:', endpoint);
             return true;
           }
         } catch (endpointError) {
-          console.log(`❌ Endpoint ${endpoint} inaccessible:`, endpointError.message);
           continue; // Essayer le prochain endpoint
         }
       }
       
-      console.log('❌ Aucun endpoint accessible');
       return false;
     } catch (error) {
-      console.log('❌ Erreur lors de la vérification de connectivité:', error.message);
       return false;
     }
   }
@@ -107,11 +99,7 @@ class ApiService {
       requestOptions.body = JSON.stringify(options.body);
     }
 
-    console.log('📡 Requête API:', {
-      url: apiUrl,
-      method: requestOptions.method,
-      hasToken: Boolean(school.token)
-    });
+
 
     const response = await fetch(apiUrl, requestOptions);
 
@@ -142,7 +130,6 @@ class ApiService {
         return { success: false, error: 'Données en cache expirées' };
       }
 
-      console.log('📱 Données récupérées depuis le cache:', endpoint);
       return { success: true, data: parsedData.data, fromCache: true };
     } catch (error) {
       console.error('❌ Erreur lors de la récupération du cache:', error);
@@ -161,7 +148,6 @@ class ApiService {
       };
       
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      console.log('💾 Données sauvegardées en cache:', endpoint);
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde en cache:', error);
     }

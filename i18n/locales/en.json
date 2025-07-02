@@ -97,7 +97,10 @@
     "comment": "Comment",
     "replacementInfo": "Replacement information",
     "notDefined": "Not defined",
-    "notDefinedF": "Not defined"
+    "notDefinedF": "Not defined",
+    "currentTime": "Current time",
+    "noCurrentActivity": "No current activity",
+    "outsideTimeSlots": "Outside time slots"
   },
   "settings": {
     "title": "Settings",

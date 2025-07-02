@@ -145,14 +145,7 @@ const TeacherListScreen = ({ route }) => {
       setLoading(true);
       setError(null);
       
-      console.log('Vérification des données de l\'école:', {
-        name: school?.name,
-        apiUrl: school?.apiUrl,
-        hasToken: Boolean(school?.token),
-        tokenPreview: school?.token ? `${school.token.substring(0, 10)}...` : 'manquant',
-        hasRefreshToken: Boolean(school?.refreshToken),
-        refreshTokenPreview: school?.refreshToken ? `${school.refreshToken.substring(0, 10)}...` : 'manquant'
-      });
+
 
       if (!school?.token) {
         throw new Error('Token d\'authentification manquant. Veuillez vous reconnecter.');
@@ -160,13 +153,11 @@ const TeacherListScreen = ({ route }) => {
 
       // Utiliser le service API centralisé
       const result = await ApiService.makeRequest(school, '/api/mobile/enseignant');
-      
+
       if (result.fromCache) {
         setIsOfflineMode(true);
-        console.log('📱 Mode hors ligne - Données récupérées depuis le cache');
       } else {
         setIsOfflineMode(false);
-        console.log('🌐 Mode en ligne - Données récupérées depuis le serveur');
       }
       
       if (!result.success) {
@@ -175,7 +166,7 @@ const TeacherListScreen = ({ route }) => {
         }
         throw new Error(result.error || 'Erreur lors du chargement des enseignants');
       }
-      
+
       const data = result.data;
       
       if (!Array.isArray(data)) {
