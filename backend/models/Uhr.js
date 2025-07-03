@@ -22,7 +22,6 @@ uhrSchema.statics.initializeUhrs = async function() {
     // Vérifier si des créneaux horaires existent déjà
     const count = await this.countDocuments();
     if (count > 0) {
-      console.log('Les créneaux horaires existent déjà, pas besoin d\'initialisation');
       return;
     }
 

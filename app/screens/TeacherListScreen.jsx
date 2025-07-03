@@ -145,7 +145,7 @@ const TeacherListScreen = ({ route }) => {
       setLoading(true);
       setError(null);
       
-
+      console.log('🔄 Chargement des enseignants...');
 
       if (!school?.token) {
         throw new Error('Token d\'authentification manquant. Veuillez vous reconnecter.');
@@ -155,8 +155,10 @@ const TeacherListScreen = ({ route }) => {
       const result = await ApiService.makeRequest(school, '/api/mobile/enseignant');
 
       if (result.fromCache) {
+        console.log('📱 Mode hors ligne activé - données depuis le cache');
         setIsOfflineMode(true);
       } else {
+        console.log('🌐 Mode en ligne - données depuis le serveur');
         setIsOfflineMode(false);
       }
       
@@ -176,8 +178,29 @@ const TeacherListScreen = ({ route }) => {
       const favsToUse = currentFavorites || favorites;
       const sortedTeachers = sortTeachersByFavorites(data, favsToUse);
       setTeachers(sortedTeachers);
+      
+      console.log(`✅ ${sortedTeachers.length} enseignants chargés avec succès`);
     } catch (err) {
-      console.error('Erreur détaillée:', err);
+      console.error('❌ Erreur détaillée:', err);
+      
+      // Si c'est une erreur de timeout ou de réseau, essayer de récupérer depuis le cache
+      if (err.message.includes('Délai d\'attente') || err.message.includes('réseau')) {
+        console.log('🔄 Tentative de récupération depuis le cache...');
+        try {
+          const cachedResult = await ApiService.getFromCache(school, '/api/mobile/enseignant');
+          if (cachedResult.success) {
+            console.log('📱 Récupération depuis le cache réussie');
+            setIsOfflineMode(true);
+            const favsToUse = currentFavorites || favorites;
+            const sortedTeachers = sortTeachersByFavorites(cachedResult.data, favsToUse);
+            setTeachers(sortedTeachers);
+            return;
+          }
+        } catch (cacheError) {
+          console.log('❌ Échec de récupération depuis le cache:', cacheError.message);
+        }
+      }
+      
       setError(err.message || 'Une erreur est survenue lors de la récupération des données');
     } finally {
       setLoading(false);

@@ -1306,7 +1306,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   bottomSpacing: {
-    height: 200, // Augmenter encore plus l'espace pour éviter que l'OfflineIndicator soit caché par les boutons
+    height: 100, // Réduit pour les APK
   },
   planningCellLast: {
     marginRight: 0,

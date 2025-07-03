@@ -52,12 +52,6 @@ app.post('/api/mobile/login', checkLoginAttempts, (req, res) => {
 
   try {
     const token = jwt.sign(tokenPayload, JWT_SECRET);
-    
-    console.log('Token généré avec succès:', {
-      username: user.username,
-      role: user.role,
-      tokenPreview: `${token.substring(0, 20)}...`
-    });
 
     res.json({ 
       token, 
@@ -78,9 +72,7 @@ app.get('/api/mobile/status', (req, res) => {
 
 app.get('/api/mobile/enseignant', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/enseignant');
     const enseignants = await Enseignant.find().sort({ nom: 1, prenom: 1 });
-    console.log(`Retour de ${enseignants.length} enseignants`);
     res.json(enseignants);
   } catch (error) {
     console.error('Erreur lors de la récupération des enseignants:', error);
@@ -90,14 +82,11 @@ app.get('/api/mobile/enseignant', async (req, res) => {
 
 app.get('/api/mobile/planning', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/planning');
     const { semaine, annee } = req.query;
     
     if (!semaine || !annee) {
       return res.status(400).json({ message: 'Les paramètres semaine et annee sont requis' });
     }
-    
-    console.log(`Recherche du planning pour semaine ${semaine}, année ${annee}`);
     
     // Récupérer les cours
     const cours = await Cours.find({
@@ -107,8 +96,6 @@ app.get('/api/mobile/planning', async (req, res) => {
     
     // Récupérer les créneaux horaires
     const uhrs = await Uhr.find().sort({ nummer: 1 });
-    
-    console.log(`Retour de ${cours.length} cours et ${uhrs.length} créneaux horaires pour cette semaine`);
     
     // Retourner un objet avec les cours et les créneaux horaires
     res.json({
@@ -123,9 +110,7 @@ app.get('/api/mobile/planning', async (req, res) => {
 
 app.get('/api/mobile/classe', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/classe');
     const classes = await Classe.find().sort({ niveau: 1, nom: 1 });
-    console.log(`Retour de ${classes.length} classes`);
     res.json(classes);
   } catch (error) {
     console.error('Erreur lors de la récupération des classes:', error);
@@ -135,9 +120,7 @@ app.get('/api/mobile/classe', async (req, res) => {
 
 app.get('/api/mobile/salle', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/salle');
     const salles = await Salle.find().sort({ nom: 1 });
-    console.log(`Retour de ${salles.length} salles`);
     res.json(salles);
   } catch (error) {
     console.error('Erreur lors de la récupération des salles:', error);
@@ -147,7 +130,6 @@ app.get('/api/mobile/salle', async (req, res) => {
 
 app.get('/api/mobile/cours/enseignant', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/cours/enseignant');
     const { enseignantId, semaine, annee } = req.query;
     
     if (!enseignantId) {
@@ -158,8 +140,6 @@ app.get('/api/mobile/cours/enseignant', async (req, res) => {
       return res.status(400).json({ message: 'Les paramètres semaine et annee sont requis' });
     }
     
-    console.log(`Recherche des cours pour enseignant ${enseignantId}, semaine ${semaine}, année ${annee}`);
-    
     // Rechercher les cours où l'enseignant est impliqué
     const cours = await Cours.find({
       'enseignants.id': enseignantId,
@@ -167,7 +147,6 @@ app.get('/api/mobile/cours/enseignant', async (req, res) => {
       annee: parseInt(annee)
     });
     
-    console.log(`Retour de ${cours.length} cours pour cet enseignant`);
     res.json(cours);
   } catch (error) {
     console.error('Erreur lors de la récupération des cours de l\'enseignant:', error);
@@ -177,15 +156,12 @@ app.get('/api/mobile/cours/enseignant', async (req, res) => {
 
 app.get('/api/mobile/cours/enseignant/:enseignantId', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/cours/enseignant/:enseignantId');
     const { enseignantId } = req.params;
     const { semaine, annee } = req.query;
     
     if (!semaine || !annee) {
       return res.status(400).json({ message: 'Les paramètres semaine et annee sont requis' });
     }
-    
-    console.log(`Recherche des cours pour enseignant ${enseignantId}, semaine ${semaine}, année ${annee}`);
     
     // Rechercher les cours où l'enseignant est impliqué
     const cours = await Cours.find({
@@ -196,8 +172,6 @@ app.get('/api/mobile/cours/enseignant/:enseignantId', async (req, res) => {
     
     // Récupérer les créneaux horaires
     const uhrs = await Uhr.find().sort({ nummer: 1 });
-    
-    console.log(`Retour de ${cours.length} cours et ${uhrs.length} créneaux horaires pour cet enseignant`);
     
     // Retourner un objet avec les cours et les créneaux horaires
     res.json({
@@ -212,9 +186,7 @@ app.get('/api/mobile/cours/enseignant/:enseignantId', async (req, res) => {
 
 app.get('/api/mobile/uhrs', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/uhrs');
     const uhrs = await Uhr.find().sort({ nummer: 1 });
-    console.log(`Retour de ${uhrs.length} créneaux horaires`);
     res.json(uhrs);
   } catch (error) {
     console.error('Erreur lors de la récupération des créneaux horaires:', error);
@@ -224,15 +196,12 @@ app.get('/api/mobile/uhrs', async (req, res) => {
 
 app.get('/api/mobile/surveillances/enseignant/:enseignantId', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/surveillances/enseignant/:enseignantId');
     const { enseignantId } = req.params;
     const { semaine, annee } = req.query;
     
     if (!semaine || !annee) {
       return res.status(400).json({ message: 'Les paramètres semaine et annee sont requis' });
     }
-    
-    console.log(`Recherche des surveillances pour enseignant ${enseignantId}, semaine ${semaine}, année ${annee}`);
     
     // Rechercher les surveillances de l'enseignant
     // Ne faire le populate que sur les champs qui existent dans le schéma
@@ -242,7 +211,6 @@ app.get('/api/mobile/surveillances/enseignant/:enseignantId', async (req, res) =
       annee: parseInt(annee)
     }).populate('uhr enseignant');
     
-    console.log(`Retour de ${surveillances.length} surveillances pour cet enseignant`);
     res.json(surveillances);
   } catch (error) {
     console.error('Erreur lors de la récupération des surveillances de l\'enseignant:', error);
@@ -253,15 +221,12 @@ app.get('/api/mobile/surveillances/enseignant/:enseignantId', async (req, res) =
 // Route pour récupérer le planning d'une classe spécifique
 app.get('/api/mobile/planning/classe/:classeId', async (req, res) => {
   try {
-    console.log('Requête reçue pour /api/mobile/planning/classe/:classeId');
     const { classeId } = req.params;
     const { semaine, annee } = req.query;
     
     if (!semaine || !annee) {
       return res.status(400).json({ message: 'Les paramètres semaine et annee sont requis' });
     }
-    
-    console.log(`Recherche du planning pour classe ${classeId}, semaine ${semaine}, année ${annee}`);
     
     // Récupérer les cours de la classe
     const cours = await Cours.find({
@@ -272,8 +237,6 @@ app.get('/api/mobile/planning/classe/:classeId', async (req, res) => {
     
     // Récupérer les créneaux horaires
     const uhrs = await Uhr.find().sort({ nummer: 1 });
-    
-    console.log(`Retour de ${cours.length} cours et ${uhrs.length} créneaux horaires pour cette classe`);
     
     // Retourner un objet avec les cours et les créneaux horaires
     res.json({

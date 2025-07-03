@@ -159,6 +159,21 @@ const HomeScreen = () => {
     );
   };
 
+  const renderCopyrightSection = () => {
+    const currentYear = new Date().getFullYear();
+    
+    return (
+      <View style={styles.copyrightSection}>
+        <Text style={styles.copyrightText}>
+          {t('copyright.developedBy')}
+        </Text>
+        <Text style={styles.copyrightText}>
+          © {currentYear} {t('copyright.allRightsReserved')}
+        </Text>
+      </View>
+    );
+  };
+
   const renderSchoolItem = ({ item }) => (
     <View style={styles.schoolItem}>
       <TouchableOpacity 
@@ -190,7 +205,12 @@ const HomeScreen = () => {
             <Text style={styles.emptySubtext}>{t('planning.noData')}</Text>
           </View>
         }
-        ListFooterComponent={renderLanguageSection()}
+        ListFooterComponent={
+          <View>
+            {renderLanguageSection()}
+            {renderCopyrightSection()}
+          </View>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -330,6 +350,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1A1A1A',
     marginBottom: 16,
+  },
+  copyrightSection: {
+    padding: 16,
+    backgroundColor: '#F8F9FA',
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+    alignItems: 'center',
+  },
+  copyrightText: {
+    fontSize: 12,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 4,
   },
 });
 

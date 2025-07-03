@@ -109,8 +109,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     borderTopWidth: 1,
     borderTopColor: '#E9ECEF',
-    padding: 12,
-    paddingBottom: 40, // Augmenter encore plus l'espace en bas pour éviter les boutons du téléphone
+    padding: 8,
+    paddingBottom: 20, // Réduit pour les APK
   },
   connectionIndicator: {
     flexDirection: 'row',

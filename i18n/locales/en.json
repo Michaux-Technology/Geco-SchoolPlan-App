@@ -16,7 +16,7 @@
     "yes": "Yes",
     "no": "No",
     "ok": "OK",
-    "retry": "Retry",
+    "retry": "Test",
     "refresh": "Refresh",
     "undefined": "Undefined",
     "user": "User"
@@ -180,5 +180,9 @@
     "syncInProgress": "Syncing...",
     "offlineMode": "Offline mode",
     "onlineMode": "Online mode"
+  },
+  "copyright": {
+    "developedBy": "Developed by Valéry-Jérôme Michaux",
+    "allRightsReserved": "All rights reserved"
   }
 } 

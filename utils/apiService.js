@@ -8,6 +8,7 @@ class ApiService {
       const isOnline = await this.checkConnectivity(school.apiUrl);
       
       if (!isOnline) {
+        console.log('📱 Pas de connectivité - tentative de récupération depuis le cache');
         const cachedData = await this.getFromCache(school, endpoint);
         if (cachedData.success) {
           return cachedData;
@@ -17,11 +18,13 @@ class ApiService {
       }
 
       // Mode en ligne - Faire la requête au serveur
+      console.log('🌐 Tentative de requête en ligne vers:', endpoint);
       const response = await this.makeServerRequest(school, endpoint, options);
       
       // Sauvegarder en cache si la requête réussit
       if (response.success && response.data) {
         await this.saveToCache(school, endpoint, response.data);
+        console.log('💾 Données sauvegardées en cache');
       }
       
       return response;
@@ -29,8 +32,10 @@ class ApiService {
       console.error('❌ Erreur API:', error);
       
       // En cas d'erreur, essayer de récupérer depuis le cache
+      console.log('🔄 Tentative de récupération depuis le cache après erreur');
       const cachedData = await this.getFromCache(school, endpoint);
       if (cachedData.success) {
+        console.log('✅ Récupération depuis le cache réussie');
         return cachedData;
       }
       
@@ -41,7 +46,7 @@ class ApiService {
   static async checkConnectivity(apiUrl) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Augmenté à 8 secondes
       
       // Essayer d'abord l'endpoint status, puis l'endpoint login comme fallback
       const endpoints = [
@@ -51,6 +56,7 @@ class ApiService {
       
       for (const endpoint of endpoints) {
         try {
+          console.log('🔍 Test de connectivité vers:', endpoint);
           const response = await fetch(endpoint, {
             method: 'GET',
             signal: controller.signal,
@@ -63,15 +69,19 @@ class ApiService {
           
           if (response.ok || response.status === 400 || response.status === 401) {
             // Le serveur répond (même avec une erreur 400/401, cela signifie qu'il est accessible)
+            console.log('✅ Connectivité confirmée vers:', endpoint);
             return true;
           }
         } catch (endpointError) {
+          console.log('⚠️ Échec de connectivité vers:', endpoint, endpointError.message);
           continue; // Essayer le prochain endpoint
         }
       }
       
+      console.log('❌ Aucun endpoint accessible');
       return false;
     } catch (error) {
+      console.log('❌ Erreur de connectivité:', error.message);
       return false;
     }
   }
@@ -99,17 +109,37 @@ class ApiService {
       requestOptions.body = JSON.stringify(options.body);
     }
 
+    // Ajouter un timeout pour la requête
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes de timeout
+    
+    try {
+      console.log('🌐 Requête vers:', apiUrl);
+      const response = await fetch(apiUrl, {
+        ...requestOptions,
+        signal: controller.signal,
+      });
 
+      clearTimeout(timeoutId);
 
-    const response = await fetch(apiUrl, requestOptions);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('❌ Erreur serveur:', response.status, errorText);
+        throw new Error(`Erreur ${response.status}: ${errorText}`);
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Erreur ${response.status}: ${errorText}`);
+      const data = await response.json();
+      console.log('✅ Requête réussie vers:', endpoint);
+      return { success: true, data, fromCache: false };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.log('⏰ Timeout de la requête vers:', endpoint);
+        throw new Error('Délai d\'attente dépassé. Vérifiez votre connexion internet.');
+      }
+      console.log('❌ Erreur de requête vers:', endpoint, error.message);
+      throw error;
     }
-
-    const data = await response.json();
-    return { success: true, data, fromCache: false };
   }
 
   static async getFromCache(school, endpoint) {

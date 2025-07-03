@@ -30,7 +30,7 @@ const useNetworkStatus = () => {
   const testServerConnectivity = async (serverUrl) => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondes de timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Augmenté à 8 secondes
       
       const response = await fetch(`${serverUrl}/health`, {
         method: 'GET',
