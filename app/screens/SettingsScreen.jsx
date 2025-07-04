@@ -174,6 +174,8 @@ const SettingsScreen = ({ navigation, route }) => {
           {isLoading ? t('common.loading') : (schoolToEdit ? t('common.edit') : t('common.save'))}
         </Text>
       </TouchableOpacity>
+
+
     </View>
   );
 };
@@ -234,6 +236,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+
 });
 
 export default SettingsScreen; 

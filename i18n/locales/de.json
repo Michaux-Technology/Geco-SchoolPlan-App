@@ -184,5 +184,36 @@
   "copyright": {
     "developedBy": "Entwickelt von Valéry-Jérôme Michaux",
     "allRightsReserved": "Alle Rechte vorbehalten"
+  },
+  "gdpr": {
+    "privacyPolicy": "Datenschutzrichtlinie",
+    "dataRights": "Ihre Rechte",
+    "dataCollection": "Datenerhebung",
+    "dataRetention": "Datenspeicherung",
+    "deleteAccount": "Meine lokalen Daten löschen",
+    "exportData": "Meine lokalen Daten exportieren",
+    "deleteData": "Meine lokalen Daten löschen",
+    "consentTitle": "Datenzustimmung",
+    "consentMessage": "Diese Anwendung sammelt bestimmte Daten, um ordnungsgemäß zu funktionieren. Wir respektieren Ihre Privatsphäre und die DSGVO.",
+    "consentAccept": "Ich akzeptiere",
+    "consentDecline": "Ich lehne ab",
+    "consentRequired": "Die Anwendung kann ohne Ihre Zustimmung zu den notwendigen Daten nicht funktionieren.",
+    "dataCollected": "Gesammelte Daten",
+    "dataPurpose": "Zweck der Verarbeitung",
+    "dataRetentionPeriod": "Aufbewahrungszeitraum",
+    "userRights": "Ihre DSGVO-Rechte",
+    "rightAccess": "Recht auf Zugang",
+    "rightRectification": "Recht auf Berichtigung",
+    "rightErasure": "Recht auf Löschung",
+    "rightPortability": "Recht auf Datenübertragbarkeit",
+    "contactDPO": "DPO kontaktieren",
+    "dataCollectedList": "• Temporäre Authentifizierungstokens\n• Spracheinstellungen\n• Zwischengespeicherte Planungsdaten\n• Konfigurierte Schulinformationen\n• Keine personenbezogenen Daten",
+    "dataPurposeList": "• Temporäre Authentifizierung und Sicherheit\n• Interface-Personalisierung\n• Offline-Funktionalität\n• Schulverwaltung",
+    "dataRetentionList": "• Tokens: bis zur Abmeldung\n• Einstellungen: bis zur Löschung\n• Cache: 24 Stunden\n• Schulen: bis zur Löschung\n• Keine persönlichen Daten gespeichert",
+    "deleteAccountConfirm": "Sind Sie sicher, dass Sie alle Ihre lokalen Daten löschen möchten? Diese Aktion ist nicht rückgängig zu machen.",
+    "deleteAccountSuccess": "Lokale Daten erfolgreich gelöscht",
+    "exportDataSuccess": "Lokale Daten erfolgreich exportiert",
+    "deleteDataSuccess": "Lokale Daten erfolgreich gelöscht",
+    "sharedCredentialsNote": "Hinweis: Diese Anwendung verwendet gemeinsame Anmeldedaten. Ihre lokalen Daten enthalten keine personenbezogenen Informationen."
   }
 } 

@@ -184,5 +184,36 @@
   "copyright": {
     "developedBy": "Developed by Valéry-Jérôme Michaux",
     "allRightsReserved": "All rights reserved"
+  },
+  "gdpr": {
+    "privacyPolicy": "Privacy Policy",
+    "dataRights": "Your Rights",
+    "dataCollection": "Data Collection",
+    "dataRetention": "Data Retention",
+    "deleteAccount": "Delete My Local Data",
+    "exportData": "Export My Local Data",
+    "deleteData": "Delete My Local Data",
+    "consentTitle": "Data Consent",
+    "consentMessage": "This application collects certain data to function properly. We respect your privacy and GDPR.",
+    "consentAccept": "I Accept",
+    "consentDecline": "I Decline",
+    "consentRequired": "The application cannot function without your consent to necessary data.",
+    "dataCollected": "Data Collected",
+    "dataPurpose": "Purpose of Processing",
+    "dataRetentionPeriod": "Retention Period",
+    "userRights": "Your GDPR Rights",
+    "rightAccess": "Right of Access",
+    "rightRectification": "Right of Rectification",
+    "rightErasure": "Right to Erasure",
+    "rightPortability": "Right to Portability",
+    "contactDPO": "Contact DPO",
+    "dataCollectedList": "• Temporary authentication tokens\n• Language preferences\n• Cached planning data\n• Configured school information\n• No personally identifiable data",
+    "dataPurposeList": "• Temporary authentication and security\n• Interface personalization\n• Offline functionality\n• School management",
+    "dataRetentionList": "• Tokens: until logout\n• Preferences: until deletion\n• Cache: 24 hours\n• Schools: until deletion\n• No personal data retained",
+    "deleteAccountConfirm": "Are you sure you want to delete all your local data? This action is irreversible.",
+    "deleteAccountSuccess": "Local data deleted successfully",
+    "exportDataSuccess": "Local data exported successfully",
+    "deleteDataSuccess": "Local data deleted successfully",
+    "sharedCredentialsNote": "Note: This application uses shared credentials. Your local data contains no personally identifiable information."
   }
 } 

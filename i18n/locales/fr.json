@@ -184,5 +184,36 @@
   "copyright": {
     "developedBy": "Développé par Valéry-Jérôme Michaux",
     "allRightsReserved": "Tous droits réservés"
+  },
+  "gdpr": {
+    "privacyPolicy": "Politique de confidentialité",
+    "dataRights": "Vos droits",
+    "dataCollection": "Collecte de données",
+    "dataRetention": "Conservation des données",
+    "deleteAccount": "Supprimer mes données locales",
+    "exportData": "Exporter mes données locales",
+    "deleteData": "Supprimer mes données locales",
+    "consentTitle": "Consentement aux données",
+    "consentMessage": "Cette application collecte certaines données pour fonctionner correctement. Nous respectons votre vie privée et le RGPD.",
+    "consentAccept": "J'accepte",
+    "consentDecline": "Je refuse",
+    "consentRequired": "L'application ne peut pas fonctionner sans votre consentement aux données nécessaires.",
+    "dataCollected": "Données collectées",
+    "dataPurpose": "Finalité du traitement",
+    "dataRetentionPeriod": "Durée de conservation",
+    "userRights": "Vos droits RGPD",
+    "rightAccess": "Droit d'accès",
+    "rightRectification": "Droit de rectification",
+    "rightErasure": "Droit à l'effacement",
+    "rightPortability": "Droit à la portabilité",
+    "contactDPO": "Contacter le DPO",
+    "dataCollectedList": "• Tokens d'authentification temporaires\n• Préférences de langue\n• Données de planning en cache\n• Informations sur les écoles configurées\n• Aucune donnée personnelle identifiable",
+    "dataPurposeList": "• Authentification temporaire et sécurité\n• Personnalisation de l'interface\n• Fonctionnement hors ligne\n• Gestion des écoles",
+    "dataRetentionList": "• Tokens : jusqu'à la déconnexion\n• Préférences : jusqu'à la suppression\n• Cache : 24 heures\n• Écoles : jusqu'à la suppression\n• Aucune donnée personnelle conservée",
+    "deleteAccountConfirm": "Êtes-vous sûr de vouloir supprimer toutes vos données locales ? Cette action est irréversible.",
+    "deleteAccountSuccess": "Données locales supprimées avec succès",
+    "exportDataSuccess": "Données locales exportées avec succès",
+    "deleteDataSuccess": "Données locales supprimées avec succès",
+    "sharedCredentialsNote": "Note : Cette application utilise des identifiants communs. Vos données locales ne contiennent aucune information personnelle identifiable."
   }
 } 

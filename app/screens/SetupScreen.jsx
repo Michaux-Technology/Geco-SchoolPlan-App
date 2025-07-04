@@ -130,6 +130,36 @@ const SetupScreen = () => {
         <MaterialIcons name="add" size={24} color="#FFFFFF" />
         <Text style={styles.addButtonText}>{t('setup.addSchool')}</Text>
       </TouchableOpacity>
+
+      {/* Section des paramètres et confidentialité */}
+      <View style={styles.settingsSection}>
+        {/* Lien vers la politique de confidentialité */}
+        <TouchableOpacity 
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate('PrivacyPolicy')}
+        >
+          <MaterialIcons name="privacy-tip" size={20} color="#1976D2" />
+          <Text style={styles.settingsButtonText}>{t('gdpr.privacyPolicy')}</Text>
+          <MaterialIcons name="chevron-right" size={20} color="#666666" />
+        </TouchableOpacity>
+
+        {/* Bouton pour réinitialiser le consentement GDPR (pour les tests) */}
+        <TouchableOpacity 
+          style={styles.resetButton}
+          onPress={async () => {
+            try {
+              await AsyncStorage.removeItem('gdpr_consent');
+              await AsyncStorage.removeItem('gdpr_consent_date');
+              Alert.alert('Test', 'Consentement GDPR réinitialisé. Redémarrez l\'app pour voir le modal.');
+            } catch (error) {
+              console.error('Erreur lors de la réinitialisation:', error);
+            }
+          }}
+        >
+          <MaterialIcons name="refresh" size={20} color="#FF6B6B" />
+          <Text style={styles.resetButtonText}>Réinitialiser consentement GDPR</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -141,7 +171,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 160 : 140,
+    paddingBottom: Platform.OS === 'ios' ? 220 : 200,
   },
   schoolItem: {
     backgroundColor: '#FFFFFF',
@@ -235,7 +265,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 80 : 64,
+    bottom: Platform.OS === 'ios' ? 20 : 16,
     right: 16,
     left: 16,
     backgroundColor: '#2196F3',
@@ -262,6 +292,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  settingsSection: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 100 : 80,
+    left: 16,
+    right: 16,
+  },
+  settingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  settingsButtonText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1976D2',
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  resetButtonText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#FF6B6B',
+    marginLeft: 12,
+    fontWeight: '500',
   },
 });
 

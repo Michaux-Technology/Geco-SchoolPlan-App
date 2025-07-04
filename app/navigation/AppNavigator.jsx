@@ -14,6 +14,7 @@ import ClassPlanningScreen from '../screens/ClassPlanningScreen';
 import RoomListScreen from '../screens/RoomListScreen';
 import RoomPlanningScreen from '../screens/RoomPlanningScreen';
 import TeacherPlanningScreen from '../screens/TeacherPlanningScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 
 const Stack = createStackNavigator();
 
@@ -112,6 +113,14 @@ const AppNavigator = () => {
             headerBackTitle: t('common.back')
           })}
 
+        />
+        <Stack.Screen 
+          name="PrivacyPolicy" 
+          component={PrivacyPolicyScreen}
+          options={{
+            title: t('gdpr.privacyPolicy'),
+            headerBackTitle: t('common.back')
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, RefreshControl, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, RefreshControl, Platform, Linking } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../hooks/useLanguage';
+import GDPRConsent from '../../components/GDPRConsent';
 
 const HomeScreen = () => {
   const { t } = useTranslation();
@@ -162,6 +163,10 @@ const HomeScreen = () => {
   const renderCopyrightSection = () => {
     const currentYear = new Date().getFullYear();
     
+    const handleGitHubPress = () => {
+      Linking.openURL('https://github.com/Michaux-Technology');
+    };
+    
     return (
       <View style={styles.copyrightSection}>
         <Text style={styles.copyrightText}>
@@ -170,6 +175,9 @@ const HomeScreen = () => {
         <Text style={styles.copyrightText}>
           © {currentYear} {t('copyright.allRightsReserved')}
         </Text>
+        <TouchableOpacity onPress={handleGitHubPress} style={styles.githubButton}>
+          <AntDesign name="github" size={24} color="#333333" />
+        </TouchableOpacity>
       </View>
     );
   };
@@ -221,6 +229,10 @@ const HomeScreen = () => {
         }
         contentContainerStyle={styles.listContent}
       />
+      
+      <GDPRConsent onConsent={(status) => {
+        console.log('Consentement RGPD:', status);
+      }} />
     </View>
   );
 };
@@ -363,6 +375,12 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     marginBottom: 4,
+  },
+  githubButton: {
+    marginTop: 8,
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#F8F9FA',
   },
 });
 
