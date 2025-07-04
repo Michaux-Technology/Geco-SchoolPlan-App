@@ -1,0 +1,33 @@
+Business Source License 1.1
+
+Parameters
+
+Licensor:             Valery-Jérôme Michaux  
+Licensed Work:        Geco-SchoolPlan-App  
+Additional Use Grant: Development, testing, research, and personal use  
+Change Date:          2030-07-04  
+Change License:       GNU General Public License, version 3 (GPL-3.0)
+
+Terms
+
+The Licensed Work is provided under the terms of the Business Source License 1.1 (the “License”). The License allows the Licensed Work to be used, copied, modified, and distributed, subject to the terms and conditions set forth below.
+
+Use Limitation
+
+The Licensed Work may be used for the Additional Use Grant specified above. Any other use (including but not limited to production use, commercial deployment, hosting, or offering the Licensed Work as a service) requires a commercial license.
+
+Change Date
+
+On the Change Date, the License will automatically terminate, and the Licensed Work will be made available under the Change License, as stated above.
+
+Enforcement
+
+If you violate the terms of this License, your rights under it will terminate automatically.
+
+Disclaimer
+
+THE LICENSED WORK IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+Contact
+
+For commercial licensing, contact: michaux@free.fr
