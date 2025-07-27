@@ -1,50 +1,83 @@
-# Welcome to your Expo app 👋
+# 📱 Geco-SchoolPlan-App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Geco-SchoolPlan-App** is the **mobile companion app** for [**Geco-SchoolPlan**](https://github.com/Michaux-Technology/Geco-SchoolPlan/blob/main/README.md), allowing teachers and students to **securely view** their schedules on their smartphones.
 
-## Get started
+---
 
-1. Install dependencies
+## 🚀 Key Features
 
-   ```bash
-   npm install
-   ```
+- 🔐 Secure user authentication (teachers & students)
+- 📆 View course schedules
+- 🧑‍🏫 Browse teachers' information
+- 🧍‍♂️ See supervision assignments
+- 🌐 Multilingual interface: **French**, **English**, **German**, **Arabic**, **Russian**
+- 🔒 JWT-based session management
+- 🛡️ Role-aware access control
 
-2. Start the app
+---
 
-   ```bash
-    npx expo start
-   ```
+## 🧰 Requirements
 
-In the output, you'll find options to open the app in a
+- Android 8.0 (API 26) or higher
+- Internet access for API communication
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 📦 Installation & Usage
 
-## Get a fresh project
+### Option 1: From Google Play / App Store
+*(If published, insert the link here)*
 
-When you're ready, run:
+### Option 2: Install via APK
 
-```bash
-npm run reset-project
-```
+1. Download the latest APK from the [Releases](https://github.com/Michaux-Technology/Geco-SchoolPlan-App/releases) page.
+2. Enable installation from unknown sources on your Android device.
+3. Install the APK and launch the app.
+4. Enter your server URL and login credentials to get started.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 🔧 Configuration
 
-To learn more about developing your project with Expo, look at the following resources:
+On first launch, configure the app:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- **Server URL**: e.g., `https://your.geco-schoolplan.server`
+- **Login credentials**: Provided by your school
+- **Preferred language**: Choose from French, English, German, Arabic, or Russian
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 🛡️ Security
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- 🔐 Secure JWT-based authentication
+- 🔒 Encrypted token storage
+- ⏱️ Automatic session expiration
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions!  
+- 🐛 Found a bug? Open an issue  
+- 🌟 Want to add features? Submit a pull request!
+
+---
+
+## 📄 License: Business Source License 1.1 (BSL 1.1)
+
+This mobile app is distributed under the **Business Source License 1.1**, which means:
+
+- ✅ **Free** for development, testing, research, and personal use  
+- ❌ **Not allowed in production environments** without a commercial license
+
+### 🔐 Commercial Use
+
+To use **Geco-SchoolPlan-App** in a production environment (schools, companies, public access), you must obtain a **commercial license**.
+
+📩 Contact for licensing: **michaux@free.fr**
+
+---
+
+## ⏳ Future Open Source
+
+On **July 4, 2030**, this project will automatically be relicensed under **GPL v3** (fully open source).
