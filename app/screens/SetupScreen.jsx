@@ -123,13 +123,23 @@ const SetupScreen = () => {
         }
         contentContainerStyle={styles.listContent}
       />
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => navigation.navigate('Settings')}
-      >
-        <MaterialIcons name="add" size={24} color="#FFFFFF" />
-        <Text style={styles.addButtonText}>{t('setup.addSchool')}</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <MaterialIcons name="add" size={24} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>{t('setup.addSchool')}</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.qrButton}
+          onPress={() => navigation.navigate('QRScanner')}
+        >
+          <MaterialIcons name="qr-code-scanner" size={24} color="#FFFFFF" />
+          <Text style={styles.qrButtonText}>{t('setup.scanQRCode')}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Section des paramètres et confidentialité */}
       <View style={styles.settingsSection}>
@@ -171,7 +181,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 220 : 200,
+    paddingBottom: Platform.OS === 'ios' ? 320 : 300,
   },
   schoolItem: {
     backgroundColor: '#FFFFFF',
@@ -263,12 +273,38 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  addButton: {
+  buttonContainer: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 20 : 16,
-    right: 16,
     left: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  addButton: {
+    flex: 1,
     backgroundColor: '#2196F3',
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  qrButton: {
+    flex: 1,
+    backgroundColor: '#4CAF50',
     borderRadius: 25,
     flexDirection: 'row',
     alignItems: 'center',
@@ -293,9 +329,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  qrButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   settingsSection: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 100 : 80,
+    bottom: Platform.OS === 'ios' ? 120 : 100,
     left: 16,
     right: 16,
   },

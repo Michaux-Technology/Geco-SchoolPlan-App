@@ -22,7 +22,9 @@
         "foregroundImage": "./assets/icon-gecko-modern.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": [],
+      "permissions": [
+        "CAMERA"
+      ],
       "package": "com.geco.schoolplanapp"
     },
     "web": {
@@ -38,7 +40,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-camera"
     ],
     "scheme": "geco-schoolplan-app",
     "newArchEnabled": true,

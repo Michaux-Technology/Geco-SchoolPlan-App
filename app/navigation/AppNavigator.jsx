@@ -15,6 +15,7 @@ import RoomListScreen from '../screens/RoomListScreen';
 import RoomPlanningScreen from '../screens/RoomPlanningScreen';
 import TeacherPlanningScreen from '../screens/TeacherPlanningScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import QRScannerScreen from '../screens/QRScannerScreen';
 
 const Stack = createStackNavigator();
 
@@ -120,6 +121,14 @@ const AppNavigator = () => {
           options={{
             title: t('gdpr.privacyPolicy'),
             headerBackTitle: t('common.back')
+          }}
+        />
+        <Stack.Screen 
+          name="QRScanner" 
+          component={QRScannerScreen}
+          options={{ 
+            title: t('qr.scanQRCode'),
+            headerShown: false
           }}
         />
       </Stack.Navigator>

@@ -140,6 +140,16 @@
     "operationFailed": "Operation failed",
     "pleaseWait": "Please wait..."
   },
+  "qr": {
+    "scanQRCode": "Scan QR code",
+    "scanInstructions": "Place the QR code in the frame to scan",
+    "requestingPermission": "Requesting camera permission...",
+    "noCameraPermission": "Camera permission denied",
+    "invalidQRCode": "Invalid QR code",
+    "missingData": "Missing data in QR code",
+    "schoolAlreadyExists": "This school is already configured",
+    "schoolAddedSuccessfully": "School added successfully"
+  },
   "viewTypes": {
     "teachers": "Teachers",
     "classes": "Classes",
@@ -153,7 +163,8 @@
   "setup": {
     "noSchools": "No schools configured",
     "addSchoolHint": "Tap the button below to add a school",
-    "addSchool": "Add a school"
+    "addSchool": "Add a school",
+    "scanQRCode": "Scan QR code"
   },
   "offline": {
     "online": "Online",
