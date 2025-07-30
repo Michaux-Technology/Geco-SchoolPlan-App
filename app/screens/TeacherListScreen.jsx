@@ -146,6 +146,17 @@ const TeacherListScreen = ({ route }) => {
       setError(null);
       
       console.log('🔄 Chargement des enseignants...');
+      console.log('🔍 École reçue dans TeacherListScreen:', {
+        id: school.id,
+        name: school.name,
+        apiUrl: school.apiUrl,
+        username: school.username,
+        role: school.role,
+        hasToken: !!school.token,
+        hasRefreshToken: !!school.refreshToken,
+        tokenPreview: school.token ? `${school.token.substring(0, 20)}...` : 'null',
+        refreshTokenPreview: school.refreshToken ? `${school.refreshToken.substring(0, 20)}...` : 'null'
+      });
 
       if (!school?.token) {
         throw new Error('Token d\'authentification manquant. Veuillez vous reconnecter.');

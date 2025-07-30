@@ -27,7 +27,21 @@ const HomeScreen = () => {
         const completeSchools = await Promise.all(
           schoolsList.map(async (school) => {
             const schoolData = await AsyncStorage.getItem(`school_${school.id}`);
-            return schoolData ? JSON.parse(schoolData) : school;
+            const completeSchool = schoolData ? JSON.parse(schoolData) : school;
+            
+            console.log('🔍 École chargée dans HomeScreen:', {
+              id: completeSchool.id,
+              name: completeSchool.name,
+              apiUrl: completeSchool.apiUrl,
+              username: completeSchool.username,
+              role: completeSchool.role,
+              hasToken: !!completeSchool.token,
+              hasRefreshToken: !!completeSchool.refreshToken,
+              tokenPreview: completeSchool.token ? `${completeSchool.token.substring(0, 20)}...` : 'null',
+              refreshTokenPreview: completeSchool.refreshToken ? `${completeSchool.refreshToken.substring(0, 20)}...` : 'null'
+            });
+            
+            return completeSchool;
           })
         );
         
@@ -141,7 +155,7 @@ const HomeScreen = () => {
 
   const renderLanguageSection = () => {
     const firstRowLanguages = ['fr', 'de', 'en'];
-    const secondRowLanguages = ['ru', 'ar'];
+    const secondRowLanguages = ['ru', 'ar', 'es'];
 
     return (
       <View style={[styles.languageSection, { direction: languageDirection }]}>
@@ -152,7 +166,7 @@ const HomeScreen = () => {
           {firstRowLanguages.map(renderLanguageOption)}
         </View>
         
-        {/* Deuxième ligne : Russe, Arabe */}
+        {/* Deuxième ligne : Russe, Arabe, Espagnol */}
         <View style={[styles.languageRow, { justifyContent: 'center' }]}>
           {secondRowLanguages.map(renderLanguageOption)}
         </View>

@@ -128,17 +128,29 @@ export default function QRScannerScreen() {
             
             // Vérifier si on a un token (succès) ou un message d'erreur
             if (loginData.token) {
-              // Sauvegarder l'école
+              // Sauvegarder l'école avec l'URL normalisée (avec slash final)
               const newSchool = {
                 id: Date.now().toString(),
                 name: normalizedData.name,
-                apiUrl: normalizedData.apiUrl,
+                apiUrl: baseUrl, // Utiliser baseUrl qui a le slash final
                 username: normalizedData.username,
                 password: normalizedData.password,
                 role: loginData.user?.role || 'user',
                 token: loginData.token,
                 refreshToken: loginData.refreshToken
               };
+
+              console.log('🔍 École créée via QR scanner:', {
+                id: newSchool.id,
+                name: newSchool.name,
+                apiUrl: newSchool.apiUrl,
+                username: newSchool.username,
+                role: newSchool.role,
+                hasToken: !!newSchool.token,
+                hasRefreshToken: !!newSchool.refreshToken,
+                tokenPreview: newSchool.token ? `${newSchool.token.substring(0, 20)}...` : 'null',
+                refreshTokenPreview: newSchool.refreshToken ? `${newSchool.refreshToken.substring(0, 20)}...` : 'null'
+              });
 
               // Récupérer les écoles existantes
               const existingSchools = await AsyncStorage.getItem('schools');

@@ -40,7 +40,8 @@ export const useLanguage = () => {
       de: 'Deutsch',
       en: 'English',
       ru: 'Русский',
-      ar: 'العربية'
+      ar: 'العربية',
+      es: 'Español'
     };
     return languageNames[languageCode] || languageCode;
   };
@@ -51,7 +52,8 @@ export const useLanguage = () => {
       de: '🇩🇪',
       en: '🇬🇧',
       ru: '🇷🇺',
-      ar: '🇸🇦'
+      ar: '🇸🇦',
+      es: '🇪🇸'
     };
     return flags[languageCode] || '🌐';
   };
@@ -72,6 +74,6 @@ export const useLanguage = () => {
     getLanguageFlag,
     isRTL,
     getCurrentLanguageDirection,
-    availableLanguages: ['fr', 'de', 'en', 'ru', 'ar']
+    availableLanguages: ['fr', 'de', 'en', 'ru', 'ar', 'es']
   };
 }; 
