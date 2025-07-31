@@ -153,7 +153,8 @@ export default function QRScannerScreen() {
           password: normalizedData.password,
           role: loginData.user?.role || 'user',
           token: loginData.token,
-          refreshToken: loginData.refreshToken
+          refreshToken: loginData.refreshToken,
+          createdViaQR: true // Marqueur pour identifier les écoles créées via QR
         };
 
         console.log('🔍 École créée via QR scanner:', {

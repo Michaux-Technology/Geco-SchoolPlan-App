@@ -19,7 +19,9 @@
     "retry": "Test",
     "refresh": "Refresh",
     "undefined": "Undefined",
-    "user": "User"
+    "user": "User",
+    "modificationImpossible": "Modification impossible",
+    "ok": "OK"
   },
   "navigation": {
     "home": "School List",
@@ -139,7 +141,8 @@
     "courseReplaced": "Course replaced successfully",
     "changesSaved": "Changes saved",
     "operationFailed": "Operation failed",
-    "pleaseWait": "Please wait..."
+    "pleaseWait": "Please wait...",
+    "qrSchoolNotEditable": "Schools created via QR code cannot be modified."
   },
   "qr": {
     "scanQRCode": "Scan QR code",

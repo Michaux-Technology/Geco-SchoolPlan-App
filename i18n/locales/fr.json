@@ -19,7 +19,9 @@
     "retry": "Tester",
     "refresh": "Actualiser",
     "undefined": "Non défini",
-    "user": "Utilisateur"
+    "user": "Utilisateur",
+    "modificationImpossible": "Modification impossible",
+    "ok": "OK"
   },
   "navigation": {
     "home": "Liste des écoles",
@@ -139,7 +141,8 @@
     "courseReplaced": "Cours remplacé avec succès",
     "changesSaved": "Modifications enregistrées",
     "operationFailed": "Opération échouée",
-    "pleaseWait": "Veuillez patienter..."
+    "pleaseWait": "Veuillez patienter...",
+    "qrSchoolNotEditable": "Les écoles créées via QR code ne peuvent pas être modifiées."
   },
   "qr": {
     "scanQRCode": "Scanner un QR code",

@@ -87,6 +87,14 @@ const HomeScreen = () => {
   };
 
   const handleEditSchool = (school) => {
+    if (school.createdViaQR) {
+      Alert.alert(
+        t('common.modificationImpossible'),
+        t('messages.qrSchoolNotEditable'),
+        [{ text: t('common.ok') }]
+      );
+      return;
+    }
     navigation.navigate('Settings', { schoolToEdit: school });
   };
 
@@ -207,6 +215,11 @@ const HomeScreen = () => {
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>{item.role || 'Non défini'}</Text>
           </View>
+          {item.createdViaQR && (
+            <View style={styles.qrBadge}>
+              <Text style={styles.qrBadgeText}>QR</Text>
+            </View>
+          )}
         </View>
         <Text style={styles.schoolUrl}>{item.apiUrl}</Text>
         <Text style={styles.username}>{t('common.user')} : {item.username}</Text>
@@ -302,6 +315,24 @@ const styles = StyleSheet.create({
     color: '#1976D2',
     fontSize: 12,
     fontWeight: '600',
+  },
+  qrBadge: {
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 4,
+  },
+  qrBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  qrInfo: {
+    fontSize: 12,
+    color: '#FF9800',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   schoolUrl: {
     fontSize: 14,

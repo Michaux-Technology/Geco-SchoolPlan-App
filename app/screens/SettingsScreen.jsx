@@ -7,6 +7,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 const SettingsScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { schoolToEdit } = route.params || {};
+  
+
+  
   const [schoolName, setSchoolName] = useState(schoolToEdit?.name || '');
   const [apiUrl, setApiUrl] = useState(schoolToEdit?.apiUrl || '');
   const [username, setUsername] = useState(schoolToEdit?.username || '');
@@ -55,7 +58,8 @@ const SettingsScreen = ({ navigation, route }) => {
           password,
           role: data.user?.role,
           token: data.token,
-          refreshToken: data.refreshToken
+          refreshToken: data.refreshToken,
+          createdViaQR: schoolToEdit?.createdViaQR || false // Préserver le marqueur existant ou false pour les nouvelles écoles
         };
 
         const existingSchools = await AsyncStorage.getItem('schools');
