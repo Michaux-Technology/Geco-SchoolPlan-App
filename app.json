@@ -15,7 +15,11 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.geco.schoolplanapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +27,9 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "package": "com.geco.schoolplanapp"
     },

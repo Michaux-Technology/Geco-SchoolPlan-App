@@ -154,7 +154,28 @@
   "setup": {
     "noSchools": "Школы не настроены",
     "addSchoolHint": "Нажмите кнопку ниже, чтобы добавить школу",
-    "addSchool": "Добавить школу"
+    "addSchool": "Добавить школу",
+    "scanQRCode": "Сканировать QR-код"
+  },
+  "qr": {
+    "scanQRCode": "Сканировать QR-код",
+    "scanInstructions": "Наведите камеру на QR-код",
+    "requestingPermission": "Запрос разрешения камеры...",
+    "noCameraPermission": "Нет доступа к камере",
+    "cameraPermissionInstructions": "Перейдите в Настройки > Приложения > Geco SchoolPlan > Разрешения > Камера",
+    "retry": "Повторить",
+    "back": "Назад",
+    "processing": "Обработка...",
+    "invalidQRCode": "Неверный формат QR-кода или поврежденные данные",
+    "missingData": "Отсутствуют данные в QR-коде",
+    "schoolAlreadyExists": "Эта школа уже существует",
+    "schoolAddedSuccessfully": "Школа \"{{name}}\" успешно добавлена!",
+    "networkError": "Не удается подключиться к серверу.",
+    "timeoutError": "Таймаут: Сервер не отвечает после 10 секунд.",
+    "connectionError": "Ошибка сети: Не удается получить доступ к серверу.",
+    "httpError": "HTTP ошибка: {{message}}",
+    "invalidCredentials": "Неверные учетные данные",
+    "networkErrorTitle": "Ошибка сети"
   },
   "offline": {
     "online": "Онлайн",

@@ -146,13 +146,23 @@
   },
   "qr": {
     "scanQRCode": "QR-Code scannen",
-    "scanInstructions": "Platzieren Sie den QR-Code im Rahmen zum Scannen",
+    "scanInstructions": "Richten Sie die Kamera auf einen QR-Code",
     "requestingPermission": "Kamera-Berechtigung wird angefordert...",
-    "noCameraPermission": "Kamera-Berechtigung verweigert",
-    "invalidQRCode": "Ungültiger QR-Code",
+    "noCameraPermission": "Kein Kamerazugriff",
+    "cameraPermissionInstructions": "Gehen Sie zu Einstellungen > Apps > Geco SchoolPlan > Berechtigungen > Kamera",
+    "retry": "Wiederholen",
+    "back": "Zurück",
+    "processing": "Verarbeitung...",
+    "invalidQRCode": "Ungültiges QR-Code-Format oder beschädigte Daten",
     "missingData": "Fehlende Daten im QR-Code",
-    "schoolAlreadyExists": "Diese Schule ist bereits konfiguriert",
-    "schoolAddedSuccessfully": "Schule erfolgreich hinzugefügt"
+    "schoolAlreadyExists": "Diese Schule existiert bereits",
+    "schoolAddedSuccessfully": "Schule \"{{name}}\" erfolgreich hinzugefügt!",
+    "networkError": "Verbindung zum Server nicht möglich.",
+    "timeoutError": "Timeout: Server antwortet nicht nach 10 Sekunden.",
+    "connectionError": "Netzwerkfehler: Zugriff auf Server nicht möglich.",
+    "httpError": "HTTP-Fehler: {{message}}",
+    "invalidCredentials": "Ungültige Anmeldedaten",
+    "networkErrorTitle": "Netzwerkfehler"
   },
   "viewTypes": {
     "teachers": "Lehrer",

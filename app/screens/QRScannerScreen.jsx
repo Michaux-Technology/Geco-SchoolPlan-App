@@ -5,12 +5,14 @@ import { useNavigation } from '@react-navigation/native';
 import { CameraView, Camera } from 'expo-camera';
 import NetInfo from '@react-native-community/netinfo';
 import { decryptData, isEncrypted } from '../../utils/encryption';
+import { useTranslation } from 'react-i18next';
 
 export default function QRScannerScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
   const navigation = useNavigation();
+  const { t } = useTranslation();
 
   const requestCameraPermission = async () => {
     try {
@@ -70,7 +72,7 @@ export default function QRScannerScreen() {
             console.log('🔓 QR code décrypté avec succès après retry:', parsedData);
           } catch (decryptError) {
             console.error('❌ Échec du décryptage:', decryptError);
-            Alert.alert('Erreur', 'Format QR code invalide ou données corrompues');
+            Alert.alert(t('common.error'), t('qr.invalidQRCode'));
             setIsProcessing(false);
             setScanned(false);
             return;
@@ -91,7 +93,7 @@ export default function QRScannerScreen() {
       
       // Vérifier que toutes les données requises sont présentes
       if (!normalizedData.name || !normalizedData.apiUrl || !normalizedData.username || !normalizedData.password) {
-        Alert.alert('Erreur', 'Données manquantes dans le QR code');
+        Alert.alert(t('common.error'), t('qr.missingData'));
         setIsProcessing(false);
         setScanned(false);
         return;
@@ -177,7 +179,7 @@ export default function QRScannerScreen() {
         );
 
         if (schoolExists) {
-          Alert.alert('Erreur', 'Cette école existe déjà');
+          Alert.alert(t('common.error'), t('qr.schoolAlreadyExists'));
           setIsProcessing(false);
           setScanned(false);
           return;
@@ -189,33 +191,33 @@ export default function QRScannerScreen() {
         await AsyncStorage.setItem(`school_${newSchool.id}`, JSON.stringify(newSchool));
 
         Alert.alert(
-          'Succès', 
-          `École "${normalizedData.name}" ajoutée avec succès !`,
+          t('common.success'), 
+          t('qr.schoolAddedSuccessfully', { name: normalizedData.name }),
           [
             {
-              text: 'OK',
+              text: t('common.ok'),
               onPress: () => navigation.goBack()
             }
           ]
         );
       } else {
-        Alert.alert('Erreur', loginData.message || 'Identifiants incorrects');
+        Alert.alert(t('common.error'), loginData.message || t('qr.invalidCredentials'));
         setScanned(false);
       }
     } catch (error) {
       console.error('Erreur lors de l\'ajout de l\'école:', error);
       
-      let errorMessage = 'Impossible de se connecter au serveur.';
+      let errorMessage = t('qr.networkError');
       
       if (error.name === 'AbortError') {
-        errorMessage = 'Timeout: Le serveur ne répond pas après 10 secondes.';
+        errorMessage = t('qr.timeoutError');
       } else if (error.message.includes('Network request failed')) {
-        errorMessage = 'Erreur réseau: Impossible d\'accéder au serveur.';
+        errorMessage = t('qr.connectionError');
       } else if (error.message.includes('HTTP')) {
-        errorMessage = `Erreur HTTP: ${error.message}`;
+        errorMessage = t('qr.httpError', { message: error.message });
       }
       
-      Alert.alert('Erreur réseau', errorMessage);
+      Alert.alert(t('qr.networkErrorTitle'), errorMessage);
       setScanned(false);
     } finally {
       setIsProcessing(false);
@@ -225,7 +227,7 @@ export default function QRScannerScreen() {
   if (hasPermission === null) {
     return (
       <View style={styles.center}>
-        <Text style={styles.permissionText}>Demande de permission caméra...</Text>
+        <Text style={styles.permissionText}>{t('qr.requestingPermission')}</Text>
         <TouchableOpacity 
           style={styles.retryButton} 
           onPress={() => {
@@ -233,7 +235,7 @@ export default function QRScannerScreen() {
             requestCameraPermission();
           }}
         >
-          <Text style={styles.retryButtonText}>Réessayer</Text>
+          <Text style={styles.retryButtonText}>{t('qr.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -242,9 +244,9 @@ export default function QRScannerScreen() {
   if (hasPermission === false) {
     return (
       <View style={styles.center}>
-        <Text style={styles.permissionText}>Pas d'accès à la caméra</Text>
+        <Text style={styles.permissionText}>{t('qr.noCameraPermission')}</Text>
         <Text style={styles.permissionSubtext}>
-          Allez dans Paramètres {'>'} Applications {'>'} Geco SchoolPlan {'>'} Permissions {'>'} Caméra
+          {t('qr.cameraPermissionInstructions')}
         </Text>
         <TouchableOpacity 
           style={styles.retryButton} 
@@ -253,13 +255,13 @@ export default function QRScannerScreen() {
             requestCameraPermission();
           }}
         >
-          <Text style={styles.retryButtonText}>Réessayer</Text>
+          <Text style={styles.retryButtonText}>{t('qr.retry')}</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.retryButton, { marginTop: 10, backgroundColor: '#666' }]} 
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.retryButtonText}>Retour</Text>
+          <Text style={styles.retryButtonText}>{t('qr.back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -277,13 +279,13 @@ export default function QRScannerScreen() {
       >
         <View style={styles.overlay}>
           <View style={styles.header}>
-            <Text style={styles.title}>Scanner QR Code</Text>
-            <Text style={styles.subtitle}>Pointez la caméra vers un QR code</Text>
+            <Text style={styles.title}>{t('qr.scanQRCode')}</Text>
+            <Text style={styles.subtitle}>{t('qr.scanInstructions')}</Text>
           </View>
           
           {isProcessing && (
             <View style={styles.processingContainer}>
-              <Text style={styles.processingText}>Traitement en cours...</Text>
+              <Text style={styles.processingText}>{t('qr.processing')}</Text>
             </View>
           )}
         </View>

@@ -143,13 +143,23 @@
   },
   "qr": {
     "scanQRCode": "Escanear código QR",
-    "scanInstructions": "Coloca el código QR en el marco para escanear",
+    "scanInstructions": "Apunta la cámara hacia un código QR",
     "requestingPermission": "Solicitando permiso de cámara...",
-    "noCameraPermission": "Permiso de cámara denegado",
-    "invalidQRCode": "Código QR inválido",
+    "noCameraPermission": "Sin acceso a la cámara",
+    "cameraPermissionInstructions": "Ve a Configuración > Aplicaciones > Geco SchoolPlan > Permisos > Cámara",
+    "retry": "Reintentar",
+    "back": "Atrás",
+    "processing": "Procesando...",
+    "invalidQRCode": "Formato de código QR inválido o datos corruptos",
     "missingData": "Datos faltantes en el código QR",
-    "schoolAlreadyExists": "Esta escuela ya está configurada",
-    "schoolAddedSuccessfully": "Escuela añadida con éxito"
+    "schoolAlreadyExists": "Esta escuela ya existe",
+    "schoolAddedSuccessfully": "¡Escuela \"{{name}}\" añadida con éxito!",
+    "networkError": "No se puede conectar al servidor.",
+    "timeoutError": "Timeout: El servidor no responde después de 10 segundos.",
+    "connectionError": "Error de red: No se puede acceder al servidor.",
+    "httpError": "Error HTTP: {{message}}",
+    "invalidCredentials": "Credenciales incorrectas",
+    "networkErrorTitle": "Error de red"
   },
   "viewTypes": {
     "teachers": "Profesores",

@@ -154,7 +154,28 @@
   "setup": {
     "noSchools": "لا توجد مدارس مُعدة",
     "addSchoolHint": "اضغط على الزر أدناه لإضافة مدرسة",
-    "addSchool": "إضافة مدرسة"
+    "addSchool": "إضافة مدرسة",
+    "scanQRCode": "مسح رمز QR"
+  },
+  "qr": {
+    "scanQRCode": "مسح رمز QR",
+    "scanInstructions": "وجه الكاميرا نحو رمز QR",
+    "requestingPermission": "طلب إذن الكاميرا...",
+    "noCameraPermission": "لا يوجد وصول للكاميرا",
+    "cameraPermissionInstructions": "اذهب إلى الإعدادات > التطبيقات > Geco SchoolPlan > الأذونات > الكاميرا",
+    "retry": "إعادة المحاولة",
+    "back": "رجوع",
+    "processing": "جاري المعالجة...",
+    "invalidQRCode": "تنسيق رمز QR غير صالح أو بيانات تالفة",
+    "missingData": "بيانات مفقودة في رمز QR",
+    "schoolAlreadyExists": "هذه المدرسة موجودة بالفعل",
+    "schoolAddedSuccessfully": "تمت إضافة المدرسة \"{{name}}\" بنجاح!",
+    "networkError": "لا يمكن الاتصال بالخادم.",
+    "timeoutError": "انتهت المهلة الزمنية: الخادم لا يستجيب بعد 10 ثوانٍ.",
+    "connectionError": "خطأ في الشبكة: لا يمكن الوصول إلى الخادم.",
+    "httpError": "خطأ HTTP: {{message}}",
+    "invalidCredentials": "بيانات اعتماد غير صحيحة",
+    "networkErrorTitle": "خطأ في الشبكة"
   },
   "offline": {
     "online": "متصل",

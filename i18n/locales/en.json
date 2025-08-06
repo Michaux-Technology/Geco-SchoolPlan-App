@@ -145,14 +145,24 @@
     "qrSchoolNotEditable": "Schools created via QR code cannot be modified."
   },
   "qr": {
-    "scanQRCode": "Scan QR code",
-    "scanInstructions": "Place the QR code in the frame to scan",
+    "scanQRCode": "Scan QR Code",
+    "scanInstructions": "Point the camera at a QR code",
     "requestingPermission": "Requesting camera permission...",
-    "noCameraPermission": "Camera permission denied",
-    "invalidQRCode": "Invalid QR code",
+    "noCameraPermission": "No camera access",
+    "cameraPermissionInstructions": "Go to Settings > Apps > Geco SchoolPlan > Permissions > Camera",
+    "retry": "Retry",
+    "back": "Back",
+    "processing": "Processing...",
+    "invalidQRCode": "Invalid QR code format or corrupted data",
     "missingData": "Missing data in QR code",
-    "schoolAlreadyExists": "This school is already configured",
-    "schoolAddedSuccessfully": "School added successfully"
+    "schoolAlreadyExists": "This school already exists",
+    "schoolAddedSuccessfully": "School \"{{name}}\" added successfully!",
+    "networkError": "Unable to connect to server.",
+    "timeoutError": "Timeout: Server not responding after 10 seconds.",
+    "connectionError": "Network error: Unable to access server.",
+    "httpError": "HTTP Error: {{message}}",
+    "invalidCredentials": "Invalid credentials",
+    "networkErrorTitle": "Network Error"
   },
   "viewTypes": {
     "teachers": "Teachers",
