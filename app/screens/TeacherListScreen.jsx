@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import ApiService from '../../utils/apiService';
 import useNetworkStatus from '../../hooks/useNetworkStatus';
+import { useTranslation } from 'react-i18next';
 
 const TeacherListScreen = ({ route }) => {
   const { school } = route.params;
@@ -18,6 +19,7 @@ const TeacherListScreen = ({ route }) => {
   // Variables pour la gestion offline
   const { isOnline } = useNetworkStatus();
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const { t } = useTranslation();
 
   const sortTeachersByFavorites = (teachersList, favoritesSet) => {
     return [...teachersList].sort((a, b) => {
@@ -278,22 +280,22 @@ const TeacherListScreen = ({ route }) => {
       } else {
         // Si vraiment rien ne fonctionne, afficher une alerte
         Alert.alert(
-          'Appeler',
+          t('teachers.call'),
           phoneNumber,
           [
             {
-              text: 'Annuler',
+              text: t('teachers.cancel'),
               style: 'cancel'
             },
             {
-              text: 'Appeler',
+              text: t('teachers.call'),
               onPress: async () => {
                 // Dernière tentative avec le numéro brut
                 try {
                   await Linking.openURL(`tel:${phoneNumber}`);
                 } catch (error) {
                   console.error('Erreur finale:', error);
-                  Alert.alert('Erreur', 'Impossible d\'ouvrir l\'application téléphone');
+                  Alert.alert(t('teachers.error'), t('teachers.cannotOpenPhone'));
                 }
               }
             }
@@ -303,9 +305,9 @@ const TeacherListScreen = ({ route }) => {
     } catch (error) {
       console.error('Erreur lors de l\'appel:', error);
       Alert.alert(
-        'Erreur',
-        'Impossible d\'ouvrir l\'application téléphone',
-        [{ text: 'OK' }]
+        t('teachers.error'),
+        t('teachers.cannotOpenPhone'),
+        [{ text: t('common.ok') }]
       );
     }
   };
@@ -330,11 +332,11 @@ const TeacherListScreen = ({ route }) => {
       } else {
         // Si WhatsApp n'est pas installé ou le contact n'existe pas
         Alert.alert(
-          'Contact WhatsApp',
-          'Que souhaitez-vous faire ?',
+          t('teachers.whatsappContact'),
+          t('teachers.whatsappOptions'),
           [
             {
-              text: 'Créer le contact',
+              text: t('teachers.createContact'),
               onPress: async () => {
                 try {
                   // Préparer les données du contact
@@ -364,22 +366,22 @@ const TeacherListScreen = ({ route }) => {
                 } catch (error) {
                   console.error('Erreur lors de la création du contact:', error);
                   Alert.alert(
-                    'Erreur',
-                    'Impossible de créer le contact. Veuillez réessayer.',
-                    [{ text: 'OK' }]
+                    t('teachers.error'),
+                    t('teachers.cannotCreateContact'),
+                    [{ text: t('common.ok') }]
                   );
                 }
               }
             },
             {
-              text: 'Ouvrir WhatsApp Web',
+              text: t('teachers.openWhatsAppWeb'),
               onPress: async () => {
                 const webWhatsappUrl = `https://wa.me/${formattedNumber}`;
                 await Linking.openURL(webWhatsappUrl);
               }
             },
             {
-              text: 'Annuler',
+              text: t('teachers.cancel'),
               style: 'cancel'
             }
           ]
@@ -388,9 +390,9 @@ const TeacherListScreen = ({ route }) => {
     } catch (error) {
       console.error('Erreur lors de l\'ouverture de WhatsApp:', error);
       Alert.alert(
-        'Erreur',
-        'Impossible d\'ouvrir WhatsApp',
-        [{ text: 'OK' }]
+        t('teachers.error'),
+        t('teachers.cannotOpenWhatsApp'),
+        [{ text: t('common.ok') }]
       );
     }
   };
@@ -409,29 +411,29 @@ const TeacherListScreen = ({ route }) => {
         await Linking.openURL(mailtoUrl);
       } else {
         Alert.alert(
-          'Information',
-          `Adresse email : ${email}`,
+          t('teachers.information'),
+          `${t('teachers.emailAddress')} ${email}`,
           [
             { 
-              text: 'Copier',
+              text: t('teachers.copy'),
               onPress: () => {
                 if (Platform.OS === 'web') {
                   navigator.clipboard.writeText(email);
                 } else {
-                  Alert.alert('Email copié', email);
+                  Alert.alert(t('teachers.emailCopied'), email);
                 }
               }
             },
-            { text: 'OK' }
+            { text: t('common.ok') }
           ]
         );
       }
     } catch (error) {
       console.error('Erreur lors de l\'ouverture de l\'email:', error);
       Alert.alert(
-        'Information',
-        `Adresse email : ${email}`,
-        [{ text: 'OK' }]
+        t('teachers.information'),
+        `${t('teachers.emailAddress')} ${email}`,
+        [{ text: t('common.ok') }]
       );
     }
   };
@@ -441,9 +443,9 @@ const TeacherListScreen = ({ route }) => {
       if (!phoneNumber) {
         console.error('Numéro de téléphone manquant');
         Alert.alert(
-          'Erreur',
-          'Numéro de téléphone non disponible',
-          [{ text: 'OK' }]
+          t('teachers.error'),
+          t('teachers.phoneNotAvailable'),
+          [{ text: t('common.ok') }]
         );
         return;
       }
@@ -488,9 +490,9 @@ const TeacherListScreen = ({ route }) => {
       console.error('Stack trace:', error.stack);
       
       Alert.alert(
-        'Erreur',
-        'Impossible d\'ouvrir Telegram. Erreur: ' + error.message,
-        [{ text: 'OK' }]
+        t('teachers.error'),
+        t('teachers.cannotOpenTelegram') + ' ' + error.message,
+        [{ text: t('common.ok') }]
       );
     }
   };
@@ -505,30 +507,30 @@ const TeacherListScreen = ({ route }) => {
           
           // Petit délai pour laisser l'application téléphone s'ouvrir
           setTimeout(() => {
-            Alert.alert(
-              'Créer un contact',
-              'Appuyez sur l\'icône "Créer un nouveau contact" dans l\'application téléphone',
-              [
-                {
-                  text: 'Copier le nom',
-                  onPress: async () => {
-                    await Clipboard.setString(teacherName);
-                    Alert.alert('Copié', 'Le nom a été copié dans le presse-papiers');
-                  }
-                },
-                {
-                  text: 'Annuler',
-                  style: 'cancel'
+                      Alert.alert(
+            t('teachers.createContactTitle'),
+            t('teachers.createContactInstructions'),
+            [
+              {
+                text: t('teachers.copyName'),
+                onPress: async () => {
+                  await Clipboard.setString(teacherName);
+                  Alert.alert(t('teachers.copied'), t('teachers.nameCopied'));
                 }
-              ]
-            );
+              },
+              {
+                text: t('teachers.cancel'),
+                style: 'cancel'
+              }
+            ]
+          );
           }, 1000);
         } catch (error) {
           console.error('Erreur lors de l\'ouverture de l\'application téléphone:', error);
           Alert.alert(
-            'Information',
-            `Pour créer le contact manuellement:\n\nNom: ${teacherName}\nTéléphone: ${phoneNumber}`,
-            [{ text: 'OK' }]
+            t('teachers.information'),
+            `${t('teachers.createContactManually')}\n\n${t('teachers.name')} ${teacherName}\n${t('teachers.phone')} ${phoneNumber}`,
+            [{ text: t('common.ok') }]
           );
         }
       } else if (Platform.OS === 'ios') {
@@ -537,21 +539,21 @@ const TeacherListScreen = ({ route }) => {
         if (canOpenContacts) {
           await Linking.openURL(contactUrl);
         } else {
-          Alert.alert('Erreur', 'Impossible d\'ouvrir les contacts');
+          Alert.alert(t('teachers.error'), t('teachers.cannotOpenContacts'));
         }
       } else {
         Alert.alert(
-          'Information',
-          `Créez un contact pour:\n\nNom: ${teacherName}\nTéléphone: ${phoneNumber}`,
-          [{ text: 'OK' }]
+          t('teachers.information'),
+          `${t('teachers.createContactFor')}\n\n${t('teachers.name')} ${teacherName}\n${t('teachers.phone')} ${phoneNumber}`,
+          [{ text: t('common.ok') }]
         );
       }
     } catch (error) {
       console.error('Erreur lors de la création du contact:', error);
       Alert.alert(
-        'Erreur',
-        'Impossible de créer le contact. Veuillez réessayer.',
-        [{ text: 'OK' }]
+        t('teachers.error'),
+        t('teachers.cannotCreateContact'),
+        [{ text: t('common.ok') }]
       );
     }
   };
@@ -651,7 +653,7 @@ const TeacherListScreen = ({ route }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Chargement des enseignants...</Text>
+        <Text style={styles.loadingText}>{t('teachers.loadingTeachers')}</Text>
       </View>
     );
   }
@@ -661,7 +663,7 @@ const TeacherListScreen = ({ route }) => {
       <View style={styles.centerContainer}>
         <MaterialIcons name="error-outline" size={64} color="#F44336" />
         <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.errorSubtext}>Tirez vers le bas pour réessayer</Text>
+        <Text style={styles.errorSubtext}>{t('teachers.pullToRetry')}</Text>
       </View>
     );
   }
@@ -672,7 +674,7 @@ const TeacherListScreen = ({ route }) => {
       {isOfflineMode && (
         <View style={styles.offlineIndicator}>
           <MaterialIcons name="wifi-off" size={16} color="#FF6B6B" />
-          <Text style={styles.offlineText}>Mode hors ligne - Données en cache</Text>
+          <Text style={styles.offlineText}>{t('teachers.offlineMode')}</Text>
         </View>
       )}
       
@@ -683,8 +685,8 @@ const TeacherListScreen = ({ route }) => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="person-outline" size={64} color="#CCCCCC" />
-            <Text style={styles.emptyText}>Aucun enseignant trouvé</Text>
-            <Text style={styles.emptySubtext}>Tirez vers le bas pour actualiser</Text>
+            <Text style={styles.emptyText}>{t('teachers.noTeachersFound')}</Text>
+            <Text style={styles.emptySubtext}>{t('teachers.pullToRefresh')}</Text>
           </View>
         }
         refreshControl={

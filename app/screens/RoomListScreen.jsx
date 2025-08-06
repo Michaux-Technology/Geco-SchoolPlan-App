@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import ApiService from '../../utils/apiService';
 import useNetworkStatus from '../../hooks/useNetworkStatus';
+import { useTranslation } from 'react-i18next';
 
 const RoomListScreen = ({ route }) => {
   const { school } = route.params;
@@ -18,6 +19,7 @@ const RoomListScreen = ({ route }) => {
   // Variables pour la gestion offline
   const { isOnline } = useNetworkStatus();
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const { t } = useTranslation();
 
   const sortRoomsByFavorites = (roomsList, favoritesSet) => {
     return [...roomsList].sort((a, b) => {
@@ -177,10 +179,10 @@ const RoomListScreen = ({ route }) => {
           </View>
           <View style={styles.roomDetails}>
             {item.type && (
-              <Text style={styles.roomType}>Type : {item.type}</Text>
+              <Text style={styles.roomType}>{t('rooms.type')} {item.type}</Text>
             )}
             {item.capacite && (
-              <Text style={styles.roomCapacity}>Capacité : {item.capacite} places</Text>
+              <Text style={styles.roomCapacity}>{t('rooms.capacity')} {item.capacite} {t('rooms.places')}</Text>
             )}
           </View>
         </View>
@@ -192,7 +194,7 @@ const RoomListScreen = ({ route }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Chargement des salles...</Text>
+        <Text style={styles.loadingText}>{t('rooms.loadingRooms')}</Text>
       </View>
     );
   }
@@ -202,7 +204,7 @@ const RoomListScreen = ({ route }) => {
       <View style={styles.centerContainer}>
         <MaterialIcons name="error-outline" size={64} color="#F44336" />
         <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.errorSubtext}>Tirez vers le bas pour réessayer</Text>
+        <Text style={styles.errorSubtext}>{t('rooms.pullToRetry')}</Text>
       </View>
     );
   }
@@ -213,7 +215,7 @@ const RoomListScreen = ({ route }) => {
       {isOfflineMode && (
         <View style={styles.offlineIndicator}>
           <MaterialIcons name="wifi-off" size={16} color="#FF6B6B" />
-          <Text style={styles.offlineText}>Mode hors ligne - Données en cache</Text>
+          <Text style={styles.offlineText}>{t('rooms.offlineMode')}</Text>
         </View>
       )}
       
@@ -224,8 +226,8 @@ const RoomListScreen = ({ route }) => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="meeting-room" size={64} color="#CCCCCC" />
-            <Text style={styles.emptyText}>Aucune salle trouvée</Text>
-            <Text style={styles.emptySubtext}>Tirez vers le bas pour actualiser</Text>
+            <Text style={styles.emptyText}>{t('rooms.noRoomsFound')}</Text>
+            <Text style={styles.emptySubtext}>{t('rooms.pullToRefresh')}</Text>
           </View>
         }
         refreshControl={
