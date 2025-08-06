@@ -2,8 +2,6 @@
 
 **Geco-SchoolPlan-App** is the **mobile companion app** for [**Geco-SchoolPlan**](https://github.com/Michaux-Technology/Geco-SchoolPlan/blob/main/README.md), allowing teachers and students to **securely view** their schedules on their smartphones.
 
-The APK will be avaible in August 2025
-
 ---
 
 ## 🚀 Key Features
